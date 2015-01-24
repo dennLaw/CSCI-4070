@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html>
+    <head lang="en">
+        <meta charset="UTF-8">
+        <title>Project 1</title>
+        <style type="text/css">
+            canvas { border: 3px solid black; }
+        </style>
+        <script type="text/javascript">
+            var i, j;
+            var fps = 100;
+            var tempX;
+            var tempY;
+            var tempdX;
+            var tempdY;
+            var radians;
+            var ctx;
+            var gradient;
+            var WIDTH;
+            var HEIGHT;
+            var tickCount = 0;
+			var maxTotalCollisionRadius = 23; //This is player collision radius plus biggest enemy shot collision radius.
+            var playerShotList = new Array();
+            var enemyShotList = new Array();
+            var enemyList = new Array();
+            var player = new Player(0, 0);
+            var bgm = new Audio("bgm.mp3");
+
+            function init(){
+                ctx = document.getElementById('canvas').getContext("2d");
+                WIDTH = ctx.canvas.width;
+                HEIGHT = ctx.canvas.height;
+
+                player.x = WIDTH/2;
+                player.y = HEIGHT * 3 / 4;
+
+                window.addEventListener('keyup', onKeyUp, true);
+                window.addEventListener('keydown', onKeyDown, true);
+                window.addEventListener('mousepress', onMousePress, false);
+
+				playBgm();
+                tick();
+            }
+
+            //Generates one tick of game.
+            function tick(){
+                generateObjects();
+                moveObjects();
+                checkOffScreen();
+                checkCollisions();
+                draw();
+                tickCount++;
+
+//                window.requestAnimationFrame(tick);
+                setTimeout(function () {
+                    requestAnimationFrame(tick);
+                }, 1000 / fps);
+            }
+
+            function draw(){
+                ctx.clearRect(0,0,WIDTH,HEIGHT);
+
+                player.drawObject();
+
+                for(i = 0; i < playerShotList.length; i++){
+                    playerShotList[i].drawObject();
+                }
+                for(i = 0; i < enemyShotList.length; i++){
+                    enemyShotList[i].drawObject();
+                }
+                for(i = 0; i < enemyList.length; i++){
+                    enemyList[i].drawObject();
+                }
+            }
+
+            function moveObjects(){
+                player.move();
+
+                for(i = 0; i < enemyList.length; i++){
+                    enemyList[i].move();
+                }
+                for(i = 0; i < enemyShotList.length; i++){
+                    enemyShotList[i].move();
+                }
+                for(i = 0; i < playerShotList.length; i++){
+                    playerShotList[i].move();
+                }
+            }
+
+            //Check against collisions and work accordingly.
+            function checkCollisions() {
+                //200 ticks of invincibility after being hit.
+                if (player.deathTicks < tickCount - player.invincibilityTime) {
+					tempX = player.x + maxTotalCollisionRadius;
+					tempdX = player.x - maxTotalCollisionRadius;
+					tempY = player.y + maxTotalCollisionRadius;
+					tempdY = player.y - maxTotalCollisionRadius;
+					
+                    for (i = 0; i < enemyShotList.length; i++) {
+						//Begin check of "is the enemy below the line where it is possible for them to connect?" first to improve performance.
+						if(enemyShotList[i].y > tempdY && enemyShotList[i].x < tempX && enemyShotList[i].x > tempdX && enemyShotList[i].y < tempY){
+							if (player.checkCollision(enemyShotList[i])) {
+								player.deductHealth();
+								enemyShotList.splice(i, 1);
+							}
+						}
+                    }
+                }
+
+                for(i = 0; i < playerShotList.length; i++) {
+                    for (j = 0; j < enemyList.length; j++) {
+//						if(Math.abs(enemyList[j].y - playerShotList[i].y) < playerShotList[i].colissionRadius + enemyList[j].colissionRadius) {
+						if(enemyList[j].y + playerShotList[i].colissionRadius + enemyList[j].colissionRadius > playerShotList[i].y){
+							if (enemyList[j].checkCollision(playerShotList[i])){
+								if(enemyList[j].decrementHealth(player.damage)){
+									enemyList.splice(j, 1);
+								}
+
+								playerShotList.splice(i,1);
+							}
+						}
+                    }
+                }
+            }
+
+            //Check for OOB to remove elements that are unused.
+            function checkOffScreen(){
+                for(i = 0; i < enemyList.length; i++){
+                    if(enemyList[i].checkOOB()){
+                        enemyList.splice(i, 1);
+                    }
+                }
+                for(i = 0; i < enemyShotList.length; i++){
+                    if(enemyShotList[i].checkOOB()){
+                        enemyShotList.splice(i, 1);
+                    }
+                }
+                for(i = 0; i < playerShotList.length; i++){
+                    if(playerShotList[i].checkOOB()){
+                        playerShotList.splice(i, 1);
+                    }
+                }
+            }
+
+            //Handles enemy spawning and bullet spawning, in that order.
+            function generateObjects(){
+
+                if(tickCount > 55 && tickCount < 455 && (tickCount - 55) % 20 == 0 && (tickCount - 55)/105 % 2 < 1){
+                    enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, -1/40, -1.5/40, 0));
+                }
+				
+				if(tickCount > 455 && tickCount < 855 && (tickCount - 55) % 20 == 0 && (tickCount - 55)/105 % 2 < 1){
+                    enemyList.push(new Enemy(0, 0, 5, 2.5, 1/40, -1.5/40, 0));
+                }
+
+                if(tickCount == 895){
+                    enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, 1/40, -0.5/40, 1));
+                }
+				
+				if(tickCount > 1955 && tickCount < 2455 && (tickCount - 55) % 30 == 0 && (tickCount - 55)/105 % 2 < 1){
+                    enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, -1/40, -1.5/40, 0));
+                    enemyList.push(new Enemy(0, 0, 5, 2.5, 1/40, -1.5/40, 0));
+				}
+				
+				if(tickCount > 2455 && tickCount < 3925 && tickCount % 35 == 0){
+					if((tickCount - 55)/105 % 2 < 1){
+						enemyList.push(new Enemy(WIDTH + 30, HEIGHT * 0.1, -1, 0, 0, 0.025, 3));
+					}
+					else if(tickCount > 2560){
+						enemyList.push(new Enemy(-30, HEIGHT * 0.1, 1, 0, 0, 0.025, 3));
+					}
+				}
+				
+                player.doShoot();
+
+                for(i = 0; i < enemyList.length; i++){
+                    enemyList[i].doShoot();
+                }
+            }
+
+            function Enemy(x, y, dx, dy, ddx, ddy, type){
+                this.type = type;
+
+                this.x = x;
+                this.y = y;
+                this.dx = dx;
+                this.dy = dy;
+                this.ddx = ddx;
+                this.ddy = ddy;
+                this.tickCount = 0;
+
+                switch(type) {
+
+                    case 0:
+
+                            this.health = 10;
+                            this.shotRadius = 50;
+                            this.startRadians = 0;
+                            this.colissionRadius = 10;
+                            this.incrementRadians = Math.PI / 2;
+
+                        break;
+
+                    case 1:
+
+                            this.health = 3000;
+                            this.shotRadius = 5;
+                            this.startRadians = 0;
+                            this.colissionRadius = 35;
+                            this.incrementRadians = Math.PI / 2;
+
+                        break;
+
+                    case 2:
+
+                            this.health = 9000;
+                            this.shotRadius = 5;
+                            this.startRadians = 0;
+                            this.colissionRadius = 70;
+                            this.incrementRadians = Math.PI / 2;
+
+                        break;
+						
+					case 3:
+
+                            this.health = 100;
+                            this.shotRadius = 15;
+                            this.startRadians = 0;
+                            this.colissionRadius = 25;
+                            this.incrementRadians = Math.PI / 2;
+
+                        break;
+                }
+            }
+
+            Enemy.prototype.drawObject = function(){
+
+                switch(this.type) {
+
+                    case 0:
+                            ctx.fillStyle = "green";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+
+                    case 1:
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 40);
+                            gradient.addColorStop(0, "green");
+                            gradient.addColorStop(0.75, "green");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 40, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+
+                    case 2:
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 75);
+                            gradient.addColorStop(0, "orange");
+                            gradient.addColorStop(0.75, "prange");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 75, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+						
+					case 3:
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 30);
+                            gradient.addColorStop(0, "cyan");
+                            gradient.addColorStop(0.75, "cyan");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 30, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+                }
+            };
+
+            Enemy.prototype.checkOOB = function(){
+                if(this.x > 1.05 * WIDTH || this.x < -0.05 * WIDTH){
+                    return true;
+                }
+
+                if(this.y > 1.05 * HEIGHT || this.y < -0.05 * HEIGHT){
+                    return true;
+                }
+            };
+
+            Enemy.prototype.doShoot = function(){
+                switch(this.type) {
+
+                    case 0:
+                            this.startRadians += Math.PI / 30;
+                            this.incrementRadians += Math.PI / 180;
+
+                            if (this.tickCount % 5 == 0) {
+
+                                radians = this.startRadians;
+
+                                tempX = this.x - this.shotRadius * Math.cos(radians);
+                                tempY = this.y - this.shotRadius * Math.sin(radians);
+                                tempdX = 3 * (player.x - tempX) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+                                tempdY = 3 * (player.y - tempY) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 0));
+                            }
+
+                        break;
+
+                    case 1:
+                            if(this.tickCount > 200){
+                                this.startRadians += Math.PI / 30;
+
+                                if (this.tickCount % 5 == 0) {
+                                    this.incrementRadians += Math.PI / 180;
+
+                                    radians = this.startRadians;
+
+                                    for(i = 0; i < 12; i++) {
+                                        radians += this.incrementRadians;
+                                        tempX = this.x - this.shotRadius * Math.cos(radians);
+                                        tempY = this.y - this.shotRadius * Math.sin(radians);
+                                        tempdX = -this.shotRadius * Math.cos(radians);
+                                        tempdY = -this.shotRadius * Math.sin(radians);
+                                        enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 1));
+                                    }
+                                }
+                            }
+
+                        break;
+						
+					case 2:
+
+                        break;
+						
+					case 3:
+                            if(this.tickCount % 20 < 1){
+								tempX = this.x;
+                                tempY = this.y;
+                                tempdX = -(this.x - WIDTH/2) / Math.sqrt(Math.pow(this.x - WIDTH/2, 2));
+                                tempdY = 0;
+								
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 3, tempdY, 3));
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 2, tempdY, 3));
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 1, tempdY, 3));
+							}
+
+                        break;
+                }
+
+                this.tickCount++;
+            };
+
+            Enemy.prototype.move = function(){
+                switch(this.type) {
+
+                    case 0:
+                            this.x += this.dx;
+                            this.y += this.dy;
+                            this.dx += this.ddx;
+                            this.dy += this.ddy;
+
+                        break;
+
+                    case 1:
+                            if(this.tickCount < 200){
+                                this.x += this.dx;
+                                this.y += this.dy;
+                                this.dx += this.ddx;
+                                this.dy += this.ddy;
+                            }
+                            else if(this.tickCount < 2000){
+                                this.dx *= 0.9;
+                                this.dy *= 0.9;
+                                this.x += this.dx;
+                                this.y += this.dy;
+                            }
+                            else{
+                                this.dy -= 0.01;
+                                this.y += this.dy;
+                            }
+                        break;
+						
+					case 2:
+						
+						break;
+						
+					case 3:
+						
+						this.x += this.dx;
+                        this.y += this.dy;
+                        this.dx += this.ddx;
+                        this.dy += this.ddy;
+							
+						break;
+                }
+            };
+
+            Enemy.prototype.checkCollision = function(shot){
+                return Math.sqrt(Math.pow(this.x - shot.x, 2) + Math.pow(this.y - shot.y, 2)) < shot.colissionRadius + this.colissionRadius;
+
+                return false;
+            };
+
+            Enemy.prototype.decrementHealth = function(damage){
+                this.health -= damage;
+
+                if(this.health < 1){
+                    return true;
+                }
+
+                return false;
+            };
+
+            function Player(x, y){
+                this.x = x;
+                this.y = y;
+                this.dx = 0;
+                this.dy = 0;
+                this.focus = false;
+                this.shoot = false;
+                this.power = 4;
+                this.damage = 1;
+                this.shotRadius = 50;
+                this.startRadians = 0;
+                this.colissionRadius = 3;
+                this.incrementRadians = Math.PI/2;
+                this.health = 10;
+                this.invincibilityTime = 200;
+                this.cannotMoveTime = 30;
+                //this.distanceFromEdges = 10;
+
+                this.noFocusSpeed = 5;
+                this.focusSpeed = 2;
+
+                this.speed = this.noFocusSpeed;
+
+                this.deathTicks = -2000;
+            }
+
+            Player.prototype.drawObject = function(){
+                if(this.deathTicks < tickCount - this.invincibilityTime) {
+                    ctx.fillStyle = "black";
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 15, 0, Math.PI * 2, true);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.fillStyle = "red";
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 4, 0, Math.PI * 2, true);
+                    ctx.closePath();
+                    ctx.fill();
+
+                    ctx.fillStyle = "white";
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2, true);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                else{
+                    if((tickCount / 6) % 2 == 0){
+                        //ctx.fillStyle = "black";
+                        //ctx.beginPath();
+                        //ctx.arc(this.x, this.y, 15, 0, Math.PI * 2, true);
+                        //ctx.closePath();
+                        //ctx.fill();
+
+                        //gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 15);
+                        //gradient.addColorStop(0, "blue");
+                        //gradient.addColorStop(0.5, "blue");
+                        //gradient.addColorStop(1, "black");
+                        ctx.fillStyle = "blue";
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, 15, 0, Math.PI*2, true);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        ctx.fillStyle = "red";
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2, true);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        ctx.fillStyle = "white";
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2, true);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                    else{
+                        ctx.fillStyle = "black";
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, 15, 0, Math.PI * 2, true);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        ctx.fillStyle = "red";
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, 4, 0, Math.PI * 2, true);
+                        ctx.closePath();
+                        ctx.fill();
+
+                        ctx.fillStyle = "white";
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, 3, 0, Math.PI * 2, true);
+                        ctx.closePath();
+                        ctx.fill();
+                    }
+                }
+            };
+
+            Player.prototype.move = function(){
+
+                if(player.deathTicks < tickCount - this.cannotMoveTime) {
+                    if (player.focus == false && (Math.abs(player.dy) == player.focusSpeed || Math.abs(player.dx) == player.focusSpeed)) {
+                        player.dx *= player.noFocusSpeed / player.focusSpeed;
+                        player.dy *= player.noFocusSpeed / player.focusSpeed;
+                    }
+
+                    if (player.focus && (Math.abs(player.dy) == player.noFocusSpeed || Math.abs(player.dx) == player.noFocusSpeed)) {
+                        player.dx *= player.focusSpeed / player.noFocusSpeed;
+                        player.dy *= player.focusSpeed / player.noFocusSpeed;
+                    }
+
+                    if (!(this.x > WIDTH || this.x < 0)) {
+                        this.x += this.dx;
+                    }
+                    else if (this.x > WIDTH && this.dx < 0 || this.x < 0 && this.dx > 0) {
+                        this.x += this.dx;
+                    }
+
+                    if (!(this.y > HEIGHT || this.y < 0)) {
+                        this.y += this.dy;
+                    }
+                    else if (this.y > HEIGHT && this.dy < 0 || this.y < 0 && this.dy > 0) {
+                        this.y += this.dy;
+                    }
+                }
+                else{
+                    this.y += -2;
+                }
+            };
+
+            Player.prototype.doShoot = function() {
+                if(player.deathTicks < tickCount - this.cannotMoveTime) {
+                    this.startRadians += Math.PI / 30;
+                    this.incrementRadians = 2 * Math.PI / this.power;
+                    //player.incrementRadians += Math.PI/180;
+
+                    if (this.deathTicks < tickCount + 20 && this.shoot == true) {
+                        radians = this.startRadians;
+
+                        for (i = 0; i < this.power; i++) {
+                            radians += this.incrementRadians;
+                            tempdX = 0;
+                            tempdY = -10;
+                            tempX = this.x - this.shotRadius * Math.cos(radians) - tempdX;
+                            tempY = this.y - 0.5 * (this.shotRadius * Math.sin(radians)) - tempdY;
+                            playerShotList.push(new playerShot(tempX, tempY, tempdX, tempdY));
+                        }
+                    }
+                }
+            };
+
+
+            Player.prototype.checkCollision = function(shot){
+//                if(Math.abs(this.y - shot.y) < shot.colissionRadius + this.colissionRadius && Math.abs(this.x - shot.x) < shot.colissionRadius + this.colissionRadius){
+                    return Math.sqrt(Math.pow(this.x - shot.x, 2) + Math.pow(this.y - shot.y, 2)) < shot.colissionRadius + this.colissionRadius;
+//                }
+
+                return false;
+            };
+
+            Player.prototype.deductHealth = function(){
+                this.health -= 1;
+
+                if(this.health < 1){
+                    //Insert game over here.
+                }
+                else{
+                    //Insert "died" animation here.
+                    this.deathTicks = tickCount;
+                    this.x = WIDTH / 2;
+                    this.y = HEIGHT + 20;
+                }
+            };
+
+            function playerShot(x, y, dx, dy){
+                this.x = x;
+                this.y = y;
+                this.dx = dx;
+                this.dy = dy;
+                this.colissionRadius = 5;
+            }
+
+            playerShot.prototype.drawObject = function(){
+                ctx.fillStyle = "#002147";
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 5, 0, Math.PI*2, true);
+                ctx.closePath();
+                ctx.fill();
+            };
+
+            playerShot.prototype.move = function(){
+                this.x += this.dx;
+                this.y += this.dy;
+                this.dy -= 0.2;
+            };
+
+            playerShot.prototype.checkOOB = function(){
+                if(this.x > 1.5 * WIDTH || this.x < -0.5 * WIDTH){
+                    return true;
+                }
+
+                if(this.y > 1.5 * HEIGHT || this.y < -0.5 * HEIGHT){
+                    return true;
+                }
+            };
+
+            function enemyShot(x, y, dx, dy, type){
+                this.x = x;
+                this.y = y;
+                this.dx = dx;
+                this.dy = dy;
+                this.type = type;
+
+                switch(this.type){
+                    case 0:
+
+                            this.colissionRadius = 20;
+                        break;
+
+                    case 1:
+
+                            this.colissionRadius = 10;
+                        break;
+						
+					case 2:
+
+                        break;
+						
+					case 3:
+
+                            this.colissionRadius = 30;
+                        break;
+                }
+            }
+
+            enemyShot.prototype.drawObject = function(){
+                switch(this.type){
+
+                    case 0:
+
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 35);
+                            gradient.addColorStop(0, "red");
+                            gradient.addColorStop(0.5, "red");
+                            gradient.addColorStop(0.75, "transparent");
+                            gradient.addColorStop(0.95, "white");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 35, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+
+                    case 1:
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 10);
+                            gradient.addColorStop(0, "green");
+                            gradient.addColorStop(0.75, "green");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+						
+					case 2:
+					
+                        break;
+						
+					case 3:
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 35);
+                            gradient.addColorStop(0, "#00CED1");
+                            gradient.addColorStop(0.75, "#00CED1");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 35, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+                }
+            };
+
+            enemyShot.prototype.move = function(){
+                this.x += this.dx;
+                this.y += this.dy;
+            };
+
+            enemyShot.prototype.checkOOB = function(){
+                if(this.x > 1.5 * WIDTH || this.x < -0.5 * WIDTH){
+                    return true;
+                }
+
+                if(this.y > 1.5 * HEIGHT || this.y < -0.5 * HEIGHT){
+                    return true;
+                }
+            };
+
+            function onKeyDown(evt){
+                switch(evt.keyCode){
+                    case 38: //Up Arrow
+                        player.dy = -player.speed;
+
+                        break;
+
+                    case 40: //Down Arrow
+                        player.dy = player.speed;
+
+                        break;
+
+                    case 37: //Left Arrow
+                        player.dx = -player.speed;
+
+                        break;
+
+                    case 39: //Right Arrow
+                        player.dx = player.speed;
+
+                        break;
+
+                    case 16: //Shift
+                        player.focus = true;
+                        player.speed = player.focusSpeed;
+                        player.shotRadius = 25;
+
+                        break;
+
+                    case 90: //Z
+                        player.shoot = true;
+
+                        break;
+                }
+            }
+
+            function onKeyUp(evt){
+                switch(evt.keyCode){
+                    case 38: //Up arrow.
+                        if(player.dy < 0){
+                            player.dy = 0;
+                        }
+
+                        break;
+
+                    case 40: //Down Arrow
+                        if(player.dy > 0){
+                            player.dy = 0;
+                        }
+
+                        break;
+
+                    case 37: // Left Arrow
+                        if(player.dx < 0){
+                            player.dx = 0;
+                        }
+
+                        break;
+
+                    case 39: //Right Arrow
+                        if(player.dx > 0){
+                            player.dx = 0;
+                        }
+
+                        break;
+
+                    case 16: //Shift
+                        player.focus = false;
+                        player.speed = player.noFocusSpeed;
+                        player.shotRadius = 50;
+
+                        break;
+
+                    case 90: //Z
+                        player.shoot = false;
+
+                        break;
+                }
+            }
+
+            function onMousePress(evt){
+//                x = event.pageX;
+//                y = event.pageY;
+            }
+
+            function playBgm() {
+				bgm.volume = 0.4;
+				bgm.play();
+            }
+
+        </script>
+    </head>
+
+    <body onload="init()">
+        <canvas id="canvas" width="1000" height="750">
+            Your browser does not support the canvas element.
+        </canvas>
+    </body>
+</html>
