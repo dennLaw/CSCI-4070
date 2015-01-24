@@ -24,12 +24,14 @@
             var enemyShotList = new Array();
             var enemyList = new Array();
             var player = new Player(0, 0);
-            var bgm = new Audio("bgm.mp3");
+            var bgm;
 
             function init(){
                 ctx = document.getElementById('canvas').getContext("2d");
                 WIDTH = ctx.canvas.width;
                 HEIGHT = ctx.canvas.height;
+				
+				bgm = document.getElementById('bgm');
 
                 player.x = WIDTH/2;
                 player.y = HEIGHT * 3 / 4;
@@ -816,6 +818,8 @@
     </head>
 
     <body onload="init()">
+		<audio id="bgm" src="bgm.mp3"></audio>
+		
         <canvas id="canvas" width="1000" height="750">
             Your browser does not support the canvas element.
         </canvas>
