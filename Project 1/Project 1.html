@@ -410,18 +410,12 @@
 
             Enemy.prototype.checkCollision = function(shot){
                 return Math.sqrt(Math.pow(this.x - shot.x, 2) + Math.pow(this.y - shot.y, 2)) < shot.colissionRadius + this.colissionRadius;
-
-                return false;
             };
 
             Enemy.prototype.decrementHealth = function(damage){
                 this.health -= damage;
 
-                if(this.health < 1){
-                    return true;
-                }
-
-                return false;
+                return this.health < 1;
             };
 
             function Player(x, y){
@@ -577,11 +571,7 @@
 
 
             Player.prototype.checkCollision = function(shot){
-//                if(Math.abs(this.y - shot.y) < shot.colissionRadius + this.colissionRadius && Math.abs(this.x - shot.x) < shot.colissionRadius + this.colissionRadius){
-                    return Math.sqrt(Math.pow(this.x - shot.x, 2) + Math.pow(this.y - shot.y, 2)) < shot.colissionRadius + this.colissionRadius;
-//                }
-
-                return false;
+                return Math.sqrt(Math.pow(this.x - shot.x, 2) + Math.pow(this.y - shot.y, 2)) < shot.colissionRadius + this.colissionRadius;
             };
 
             Player.prototype.deductHealth = function(){
