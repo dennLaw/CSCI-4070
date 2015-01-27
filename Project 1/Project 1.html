@@ -25,7 +25,10 @@
             var enemyShotList = new Array();
             var enemyList = new Array();
             var player = new Player(0, 0);
+			var bossStageDone = false;
             var bgm;
+			var stageFinish = false;
+			var bossStageDone2 = false;
 
             function init(){
                 ctx = document.getElementById('canvas').getContext("2d");
@@ -85,6 +88,12 @@
 					ctx.font = "150px Helvetica";
 					ctx.fillText("Game Over", WIDTH * 0.1, HEIGHT * 0.4);
 				}
+				
+				if(stageFinish){
+					ctx.fillStyle = "black";
+					ctx.font = "150px Helvetica";
+					ctx.fillText("Stage Clear", WIDTH * 0.1, HEIGHT * 0.4);
+				}
             }
 
             function moveObjects(){
@@ -130,7 +139,9 @@
                 for(i = 0; i < playerShotList.length; i++) {
                     for (j = 0; j < enemyList.length; j++) {
 //						if(Math.abs(enemyList[j].y - playerShotList[i].y) < playerShotList[i].colissionRadius + enemyList[j].colissionRadius) {
-						if(enemyList[j].y + playerShotList[i].colissionRadius + enemyList[j].colissionRadius > playerShotList[i].y){
+
+						//Throws an error...? Not sure what's happening. This is supposed to make for less work when checking playershot colissions.
+//						if(enemyList[j].y + playerShotList[i].colissionRadius + enemyList[j].colissionRadius > playerShotList[i].y){
 							while(j < enemyList.length && i < playerShotList.length && enemyList[j].checkCollision(playerShotList[i])){
 								if(enemyList[j].decrementHealth(player.damage)){
 									enemyList.splice(j, 1);
@@ -138,7 +149,7 @@
 
 								playerShotList.splice(i,1);
 							}
-						}
+//						}
                     }
                 }
             }
@@ -164,10 +175,6 @@
 
             //Handles enemy spawning and bullet spawning, in that order.
             function generateObjects(){
-			
-//			if(tickCount == 1){
-//                enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, 1/40, -0.75/40, 5));
-//			}
 
                 if(tickCount > 55 && tickCount < 455 && (tickCount - 55) % 20 == 0 && (tickCount - 55)/105 % 2 < 1){
                     enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, -1/40, -1.5/40, 0));
@@ -217,8 +224,6 @@
 					
                     enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, 1/40, -0.75/40, 5));
 				}
-				
-				
 				
                 player.doShoot();
 
@@ -295,10 +300,12 @@
 
                             this.health = 13000;
 							this.maxHealth = this.health;
-                            this.shotRadius = 5;
-                            this.startRadians = 0;
+                            this.shotRadius = 4;
+                            this.startRadians = Math.PI/24;
                             this.colissionRadius = 35;
                             this.incrementRadians = Math.PI / 2;
+							this.nextStageTick = 0;
+							this.lineRadians = 0;
 
                         break;
                 }
@@ -343,7 +350,7 @@
                     case 2:
                             gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 75);
                             gradient.addColorStop(0, "orange");
-                            gradient.addColorStop(0.75, "prange");
+                            gradient.addColorStop(0.75, "orange");
                             gradient.addColorStop(1, "transparent");
                             ctx.fillStyle = gradient;
                             ctx.beginPath();
@@ -355,8 +362,8 @@
 						
 					case 3:
                             gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 30);
-                            gradient.addColorStop(0, "cyan");
-                            gradient.addColorStop(0.75, "cyan");
+                            gradient.addColorStop(0, "#4682B4");
+                            gradient.addColorStop(0.75, "#4682B4");
                             gradient.addColorStop(1, "transparent");
                             ctx.fillStyle = gradient;
                             ctx.beginPath();
@@ -376,6 +383,23 @@
                         break;
 					
 					case 5:
+		
+							i = this.health/this.maxHealth; //Percentage health.
+							
+							if(i < 0.2){
+								ctx.lineWidth = 10;
+								
+								for(j = 0; j < 6; j++){
+									this.lineRadians += Math.PI/3;
+									ctx.strokeStyle = "#2F4F4F";
+									ctx.beginPath();
+									ctx.moveTo(this.x, this.y);
+									ctx.lineTo(this.x + 2 * HEIGHT * Math.cos(this.lineRadians), this.y - 2 * HEIGHT * Math.sin(this.lineRadians));
+									ctx.closePath();
+									ctx.stroke();
+								}
+							}
+							
                             gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 40);
                             gradient.addColorStop(0, "#3CB371");
                             gradient.addColorStop(0.75, "#3CB371");
@@ -386,15 +410,68 @@
                             ctx.closePath();
                             ctx.fill();
 							
-							ctx.strokeStyle = "#B22222";
-							ctx.lineWidth   = 5;
+							if(i > 0.2){
+								if(i > 0.8){
+									ctx.strokeStyle = "#448E88";
+								}
+								else if(i > 0.6){
+									ctx.strokeStyle = "#864D50";
+								}
+								else if(i > 0.4){
+									ctx.strokeStyle = "#9C3839";
+								}
+								else{
+									ctx.strokeStyle = "#B22222";
+								}
+								
+								ctx.lineWidth = 5;
+								ctx.beginPath();
+								ctx.arc(this.x, this.y, 75, 0, 2*Math.PI, false);
+								ctx.closePath();
+								ctx.stroke();
+							}
+							
+							
+							if(i > 0.8){
+								ctx.strokeStyle = "#20B2AA";
+							}
+							else if(i > 0.6){
+								ctx.strokeStyle = "#448E88";
+							}
+							else if(i > 0.4){
+								ctx.strokeStyle = "#864D50";
+							}
+							else if(i > 0.2){
+								ctx.strokeStyle = "#9C3839";
+							}
+							else{
+								ctx.strokeStyle = "#B22222";
+							}
+							
+							ctx.lineWidth = 5;
 							ctx.beginPath();
-							tempX = ((1 - this.health/this.maxHealth) * 2 - 0.5) * Math.PI;
+//							tempX = ((1 - this.health/this.maxHealth) * 2 - 0.5) * Math.PI;
+							tempX = ((1 - (5 * (i % 0.2))) * 2 - 0.5) * Math.PI;
 							tempY = 1.5 * Math.PI;
 							ctx.arc(this.x, this.y, 75, tempX, tempY, false);
 							ctx.arc(this.x, this.y, 75, tempY, tempX, true);
 							ctx.closePath();
 							ctx.stroke();
+							
+							ctx.strokeStyle = "#8B0000";
+							ctx.beginPath();
+							ctx.moveTo(this.x, this.y - 70);
+							ctx.lineTo(this.x, this.y - 80);
+							ctx.closePath();
+							ctx.stroke();
+							
+							ctx.strokeStyle = "black";
+							ctx.beginPath();
+							ctx.moveTo(this.x + 70 * Math.cos(tempX), this.y + 70 * Math.sin(tempX));
+							ctx.lineTo(this.x + 80 * Math.cos(tempX), this.y + 80 * Math.sin(tempX));
+							ctx.closePath();
+							ctx.stroke();
+							
                         break;
                 }
             };
@@ -490,8 +567,100 @@
                         break;
 						
 					case 5:
-                            
-
+					
+                        i = this.health/this.maxHealth; //Percentage health.
+						
+						if(i == 0.8 || i == 0.6 || i == 0.4 || i == 0.2){
+							this.nextStageTick = this.tickCount;
+						}
+						
+						if(this.tickCount > 200 && this.tickCount - this.nextStageTick > 30){
+							if(i > 0.8){
+								if(this.tickCount % 5 == 0){
+									this.startRadians += Math.PI/12;
+									this.startRadians %= Math.PI;
+									
+                                    tempdX = -this.shotRadius * Math.cos(this.startRadians + 0.5 * Math.PI);
+                                    tempdY = this.shotRadius * Math.sin(this.startRadians + 0.5 * Math.PI);
+                                    tempX = this.x - tempdX;
+                                    tempY = this.y - tempdY;
+                                    enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 5));
+									
+									tempdX = this.shotRadius * Math.cos(this.startRadians + 0.5 * Math.PI);
+                                    tempX = this.x - tempdX;
+                                    enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 5));
+								}
+							}
+							else if(i > 0.6){
+								if(this.tickCount % 10 == 0){
+									this.startRadians += Math.PI/24;
+									
+                                    tempdX = this.shotRadius * Math.cos(this.startRadians * Math.PI);
+                                    tempdY = -this.shotRadius * Math.sin(this.startRadians * Math.PI);
+                                    tempX = this.x - tempdX;
+                                    tempY = this.y - tempdY;
+									
+									if(tempdY > 0){
+										tempdY = -tempdY;
+									}
+                                    enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 8));
+								}
+								
+								if(this.tickCount % 40 == 0){
+								
+									enemyShotList.push(new enemyShot(this.x, this.y, this.shotRadius * Math.cos(8/6*Math.PI), -this.shotRadius * Math.sin(8/6*Math.PI), 10));
+									enemyShotList.push(new enemyShot(this.x, this.y, this.shotRadius * Math.cos(8.5/6*Math.PI), -this.shotRadius * Math.sin(8.5/6*Math.PI), 10));
+									enemyShotList.push(new enemyShot(this.x, this.y, this.shotRadius * Math.cos(9.5/6*Math.PI), -this.shotRadius * Math.sin(9.5/6*Math.PI), 10));
+									enemyShotList.push(new enemyShot(this.x, this.y, this.shotRadius * Math.cos(10/6*Math.PI), -this.shotRadius * Math.sin(10/6*Math.PI), 10));
+								}
+							}
+							else if(i > 0.4){
+								
+								if(this.tickCount % 50 == 0){
+									this.startRadians += Math.PI/24;
+									
+                                    tempdX = this.shotRadius * Math.cos(this.startRadians * Math.PI);
+                                    tempdY = -this.shotRadius * Math.sin(this.startRadians * Math.PI);
+                                    tempX = this.x - tempdX;
+                                    tempY = this.y - tempdY;
+									
+                                    enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 11));
+                                    enemyShotList.push(new enemyShot(tempX, tempY, 1.025 * tempdX, 1.025 * tempdY, 11));
+                                    enemyShotList.push(new enemyShot(tempX, tempY, 1.05 * tempdX, 1.05 * tempdY, 11));
+								}
+							}
+							else if(i > 0.2){
+								bossStageDone = true;
+							
+								if(this.tickCount % 20 == 0){
+									this.startRadians += Math.PI/23;
+									this.startRadians %= Math.PI/8;
+									
+                                    tempdX = this.shotRadius * Math.cos(this.startRadians + 0.5 * Math.PI);
+                                    tempdY = -this.shotRadius * Math.sin(this.startRadians + 0.5 * Math.PI);
+                                    tempX = this.x - tempdX;
+                                    tempY = this.y - tempdY;
+									
+                                    enemyShotList.push(new enemyShot(tempX, tempY, -tempdX, tempdY, 12));
+                                    enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 12));
+								}
+							}
+							else{
+								bossStageDone2 = true;
+								this.lineRadians += Math.PI/1200;
+									
+								if(this.tickCount % 10 == 0){
+									
+									tempX = Math.sqrt(Math.pow(this.x - player.x, 2) + Math.pow(this.y - player.y, 2));
+									for(j = 0; j < 6; j++){
+										this.lineRadians += Math.PI/3;
+										
+										enemyShotList.push(new enemyShot(this.x + tempX * Math.cos(this.lineRadians), this.y - tempX * Math.sin(this.lineRadians), 0, 0, 13));
+									}
+								}
+							}
+						}
+						
                         break;
                 }
 
@@ -557,12 +726,16 @@
                                 this.dx += this.ddx;
                                 this.dy += this.ddy;
                             }
-                            else{
+                            else if(this.health/this.maxHealth > 0.2){
                                 this.dx *= 0.9;
                                 this.dy *= 0.9;
                                 this.x += this.dx;
                                 this.y += this.dy;
                             }
+							else{
+								this.x = (49*this.x + WIDTH/2)/50;
+								this.y = (49*this.y + HEIGHT/2)/50;
+							}
 							
                         break;
                 }
@@ -574,6 +747,12 @@
 
             Enemy.prototype.decrementHealth = function(damage){
                 this.health -= damage;
+				
+				if(this.type == 5 && this.health == 0){
+					stageFinish = true;
+					enemyShotList.splice(0, enemyShotList.length);
+					stopBgm();
+				}
 
                 return this.health < 1;
             };
@@ -593,7 +772,7 @@
                 this.startRadians = 0;
                 this.colissionRadius = 3;
                 this.incrementRadians = Math.PI/2;
-                this.health = 6;
+                this.health = 60;
                 this.invincibilityTime = 200;
                 this.cannotMoveTime = 30;
                 //this.distanceFromEdges = 10;
@@ -640,7 +819,7 @@
             Player.prototype.move = function(){
 
                 if(player.deathTicks < tickCount - this.cannotMoveTime) {
-                    if (player.focus == false && (Math.abs(player.dy) == player.focusSpeed || Math.abs(player.dx) == player.focusSpeed)) {
+                    if (!player.focus && (Math.abs(player.dy) == player.focusSpeed || Math.abs(player.dx) == player.focusSpeed)) {
                         player.dx *= player.noFocusSpeed / player.focusSpeed;
                         player.dy *= player.noFocusSpeed / player.focusSpeed;
                     }
@@ -706,7 +885,8 @@
                 this.health -= 1;
 
                 if(this.health < 1){
-                    this.x = 10 * WIDTH;
+					//Game over, move player to the "void".
+                    this.x = WIDTH / 2;
 					this.y = 10 * HEIGHT;
                 }
                 else{
@@ -740,11 +920,11 @@
             };
 
             playerShot.prototype.checkOOB = function(){
-                if(this.x > 1.5 * WIDTH || this.x < -0.5 * WIDTH){
+                if(this.x > 1.05 * WIDTH || this.x < -0.05 * WIDTH){
                     return true;
                 }
 
-                if(this.y > 1.5 * HEIGHT || this.y < -0.5 * HEIGHT){
+                if(this.y > 1.05 * HEIGHT || this.y < -0.05 * HEIGHT){
                     return true;
                 }
             };
@@ -755,6 +935,7 @@
                 this.dx = dx;
                 this.dy = dy;
                 this.type = type;
+				this.tickCount = 0;
 
                 switch(this.type){
                     case 0:
@@ -780,6 +961,51 @@
 
                             this.colissionRadius = 10;
                         break;
+						
+					case 5:
+					
+							this.colissionRadius = 10;
+						break;	
+						
+					case 6:
+					
+							this.colissionRadius = 10;
+						break;
+						
+					case 7:
+					
+							this.colissionRadius = 10;
+						break;
+						
+					case 8:
+					
+							this.colissionRadius = 10;
+						break;
+						
+					case 9:
+					
+							this.colissionRadius = 10;
+						break;
+						
+					case 10:
+					
+							this.colissionRadius = 20;
+						break;
+						
+					case 11:
+					
+							this.colissionRadius = 20;
+						break;
+						
+					case 12:
+					
+							this.colissionRadius = 10;
+						break;
+						
+					case 13:
+					
+							this.colissionRadius = 10;
+						break;
                 }
             }
 
@@ -840,12 +1066,189 @@
                             ctx.fill();
 
                         break;
+						
+					case 4:
+                            ctx.fillStyle = "#800000";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+						
+					case 5:
+					
+                            ctx.fillStyle = "#000080";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;	
+						
+					case 6:
+					
+                            ctx.fillStyle = "#48D1CC";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 7:
+					
+                            ctx.fillStyle = "#DC143C";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 8:
+					
+                            ctx.fillStyle = "#6B8E23";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 9:
+					
+                            ctx.fillStyle = "#2E8B57";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 10:
+					
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 35);
+                            gradient.addColorStop(0, "#006400");
+                            gradient.addColorStop(0.5, "#006400");
+                            gradient.addColorStop(0.75, "transparent");
+                            gradient.addColorStop(0.95, "white");
+							ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 20, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 11:
+					
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 35);
+                            gradient.addColorStop(0, "#9932CC");
+                            gradient.addColorStop(0.5, "#9932CC");
+                            gradient.addColorStop(0.75, "transparent");
+                            gradient.addColorStop(0.95, "white");
+							ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 20, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 12:
+					
+                            ctx.fillStyle = "#696969";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 13:
+					
+                            ctx.fillStyle = "#DC143C";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
                 }
             };
 
             enemyShot.prototype.move = function(){
                 this.x += this.dx;
                 this.y += this.dy;
+				this.tickCount++;
+				
+				switch(this.type){
+					case 5:
+					
+							if(this.tickCount == 40){
+							
+                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(7/6*Math.PI) - this.dy * Math.sin(7/6*Math.PI), this.dx * Math.sin(7/6*Math.PI) + this.dy * Math.cos(7/6*Math.PI), 6));
+//                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(8/6*Math.PI) - this.dy * Math.sin(8/6*Math.PI), this.dx * Math.sin(8/6*Math.PI) + this.dy * Math.cos(8/6*Math.PI), 6));
+                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(10/6*Math.PI) - this.dy * Math.sin(10/6*Math.PI), this.dx * Math.sin(10/6*Math.PI) + this.dy * Math.cos(10/6*Math.PI), 6));
+//                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(11/6*Math.PI) - this.dy * Math.sin(11/6*Math.PI), this.dx * Math.sin(11/6*Math.PI) + this.dy * Math.cos(11/6*Math.PI), 6));
+								
+								this.x = 10 * WIDTH;
+							}
+						break;	
+						
+					case 6:
+					
+							if(this.tickCount == 40){
+							
+							    enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(7/6*Math.PI) - this.dy * Math.sin(7/6*Math.PI), this.dx * Math.sin(7/6*Math.PI) + this.dy * Math.cos(7/6*Math.PI), 7));
+                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(8/6*Math.PI) - this.dy * Math.sin(8/6*Math.PI), this.dx * Math.sin(8/6*Math.PI) + this.dy * Math.cos(8/6*Math.PI), 7));
+                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(10/6*Math.PI) - this.dy * Math.sin(10/6*Math.PI), this.dx * Math.sin(10/6*Math.PI) + this.dy * Math.cos(10/6*Math.PI), 7));
+                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(11/6*Math.PI) - this.dy * Math.sin(11/6*Math.PI), this.dx * Math.sin(11/6*Math.PI) + this.dy * Math.cos(11/6*Math.PI), 7));
+
+								this.x = 10 * WIDTH;
+							}
+						break;
+						
+					case 8:
+							
+							if(this.x > WIDTH || this.x < 0 || this.y < 0){
+								tempX = this.x;
+                                tempY = this.y;
+                                tempdX = (player.x - tempX) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+                                tempdY = (player.y - tempY) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+								
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 2, tempdY * 2, 9));
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 3, tempdY * 3, 9));
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 4, tempdY * 4, 9));
+								
+								this.x = 2*WIDTH;
+							}
+							
+						break;
+						
+					case 11:
+							if(this.tickCount < 1000 && !bossStageDone){
+								if(this.x > WIDTH || this.x < 0){
+									this.dx = -1.05 * this.dx;
+								}
+								
+								if(this.y < 0 || this.y > HEIGHT){
+									this.dy = -1.05 * this.dy;
+								}
+							}
+							
+						break;
+						
+					case 12:
+							if(this.tickCount < 1000 && !bossStageDone2){
+								
+								if(this.y < 0){
+									this.dy = 1.1 * this.dy;
+									this.y = HEIGHT;
+								}
+							}
+							
+						break;
+						
+					case 13:
+							if(this.tickCount > 415){
+								this.x = 2*WIDTH;
+							}
+							
+						break;
+                }
             };
 
             enemyShot.prototype.checkOOB = function(){
@@ -951,6 +1354,10 @@
             function playBgm() {
 				bgm.volume = 0.4;
 				bgm.play();
+            }
+			
+            function stopBgm() {
+				bgm.pause();
             }
 
         </script>
