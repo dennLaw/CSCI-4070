@@ -7,28 +7,29 @@
             canvas { border: 3px solid black; }
         </style>
         <script type="text/javascript">
-            var i, j;
-            var fps = 100;
-            var tempX;
-            var tempY;
-            var tempdX;
-            var tempdY;
-            var radians;
-            var ctx;
-            var gradient;
-            var WIDTH;
-            var HEIGHT;
-            var tickCount = 0;
-			var exchangeCount = false;
-			var maxTotalCollisionRadius = 33; //This is player collision radius plus biggest enemy shot collision radius.
-            var playerShotList = new Array();
-            var enemyShotList = new Array();
-            var enemyList = new Array();
-            var player = new Player(0, 0);
-			var bossStageDone = false;
-            var bgm;
-			var stageFinish = false;
-			var bossStageDone2 = false;
+            var i, j;							//Placeholder for use in calcualtions.
+            var fps = 100;						//Frames per second.
+            var tempX;							//Placeholder for use in calcualtions.
+            var tempY;							//Placeholder for use in calcualtions.
+            var tempdX;							//Placeholder for use in calcualtions.
+            var tempdY;							//Placeholder for use in calcualtions.
+            var radians;						//Placeholder radians for use in shot generation.
+            var ctx;							//Canvas.
+            var gradient;						//Placeholder gradent variable for drawing.
+            var WIDTH;							//Canvas width.
+            var HEIGHT;							//Canvas height.
+            var tickCount = 0;					//Timer for the game.
+			var exchangeCount = false;			//Simple placeholder for swapping sides for one of the spawning algorithms.
+			var maxTotalCollisionRadius = 33; 	//This is player collision radius plus biggest enemy shot collision radius.
+            var playerShotList = new Array(); 	//This holds all the player's shots currently in play.
+            var enemyShotList = new Array();	//This holds all the enemy's shots currently in play.
+            var enemyList = new Array();		//This holds all the enemies currently in play.
+            var player = new Player(0, 0);		//This is you.
+			var bossStageDone = false;			//Placeholder variable to dictate shots to leave the screen once the stage completes.
+			var bossStageDone2 = false;			//Placeholder variable to dictate shots to leave the screen once the stage completes.
+            var bgm;							//Stage music.
+			var stageFinish = false;			//False if the stage is in progress, True if the stage is complete.
+			var gameStart = false;				//Check if the the player requests to start the game.
 
             function init(){
                 ctx = document.getElementById('canvas').getContext("2d");
@@ -44,6 +45,12 @@
                 window.addEventListener('keydown', onKeyDown, true);
                 window.addEventListener('mousepress', onMousePress, false);
 
+				//while(drawTitleScreen());
+				//ctx.fillStyle = "black";
+				//ctx.font = "100px Helvetica";
+				//ctx.fillText("Press Enter to Start", WIDTH * 0.1, HEIGHT * 0.4);
+				//while(!gameStart);
+				
 				playBgm();
                 tick();
             }
@@ -62,6 +69,16 @@
                     requestAnimationFrame(tick);
                 }, 1000 / fps);
             }
+			
+			function drawTitleScreen(){
+                ctx.clearRect(0,0,WIDTH,HEIGHT);
+				
+				ctx.fillStyle = "black";
+				ctx.font = "100px Helvetica";
+				ctx.fillText("Press Enter to Start", WIDTH * 0.1, HEIGHT * 0.4);
+				
+				return !gameStart;
+			}
 
             function draw(){
                 ctx.clearRect(0,0,WIDTH,HEIGHT);
@@ -1287,6 +1304,9 @@
                         player.focus = true;
                         player.speed = player.focusSpeed;
                         //player.shotRadius = 25;
+						
+					case 13: //Enter
+						gameStart = true;
 
                         break;
 						
