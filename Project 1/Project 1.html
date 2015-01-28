@@ -32,19 +32,24 @@
 			var gameStart = false;				//Check if the the player requests to start the game.
 
             function init(){
+				//Initialize Canvas.
                 ctx = document.getElementById('canvas').getContext("2d");
                 WIDTH = ctx.canvas.width;
                 HEIGHT = ctx.canvas.height;
 				
+				//Initialize BGM variable.
 				bgm = document.getElementById('bgm');
 
+				//Initialize player position.
                 player.x = WIDTH/2;
                 player.y = HEIGHT * 3 / 4;
 
+				//Initialize event listeners.
                 window.addEventListener('keyup', onKeyUp, true);
                 window.addEventListener('keydown', onKeyDown, true);
-                window.addEventListener('mousepress', onMousePress, false);
+                //window.addEventListener('mousepress', onMousePress, false);
 
+				//Goto title screen.
                 setTimeout(function () {
                     requestAnimationFrame(drawTitleScreen);
                 }, 1000 / fps);
@@ -60,11 +65,14 @@
                 tickCount++;
 
 //                window.requestAnimationFrame(tick);
+				//Calls another tick of the game with 100 FPS.
                 setTimeout(function () {
                     requestAnimationFrame(tick);
                 }, 1000 / fps);
             }
 			
+			//Draws the title screen, shows instructions, and prompts for the player to press enter to start the game.
+			//If the player hits enter, it begins the game.
 			function drawTitleScreen(){
                 ctx.clearRect(0,0,WIDTH,HEIGHT);
 				
@@ -88,6 +96,7 @@
 				}
 			}
 
+			//Draws the gamestate.
             function draw(){
                 ctx.clearRect(0,0,WIDTH,HEIGHT);
 
@@ -103,6 +112,7 @@
                     enemyList[i].drawObject();
                 }
 				
+				//Display lives if lives > 0. Otherwise, display game over.
 				if(player.health > 0){
 					ctx.textAlign = 'left';
 					ctx.fillStyle = "black";
@@ -116,14 +126,16 @@
 					ctx.fillText("Game Over", WIDTH * 0.5, HEIGHT * 0.4);
 				}
 				
+				//If the stage is complete, display the victory text.
 				if(stageFinish){
-				ctx.textAlign = 'center';
+					ctx.textAlign = 'center';
 					ctx.fillStyle = "black";
 					ctx.font = "150px Helvetica";
 					ctx.fillText("Stage Clear", WIDTH * 0.5, HEIGHT * 0.4);
 				}
             }
 
+			//Moves objects
             function moveObjects(){
                 player.move();
 
@@ -204,6 +216,7 @@
             //Handles enemy spawning and bullet spawning, in that order.
             function generateObjects(){
 
+				//Begin stage spawning.
                 if(tickCount > 55 && tickCount < 455 && (tickCount - 55) % 20 == 0 && (tickCount - 55)/105 % 2 < 1){
                     enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, -1/40, -1.5/40, 0));
                 }
@@ -252,6 +265,7 @@
 					
                     enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, 1/40, -0.75/40, 5));
 				}
+				//End stage spawning.
 				
                 player.doShoot();
 
@@ -260,7 +274,15 @@
                 }
             }
 
+			//The generic Enemy object.
+			// x - 		X position
+			// y - 		Y position
+			// dx -		Velocity X
+			// dy -		Velocity Y
+			// ddx -	Acceleration X
+			// ddy -	Acceleration Y
             function Enemy(x, y, dx, dy, ddx, ddy, type){
+				//Type defines the behavior of the enemy.
                 this.type = type;
 
                 this.x = x;
@@ -339,6 +361,7 @@
                 }
             }
 
+			//Enemy object's generic draw function.
             Enemy.prototype.drawObject = function(){
 
                 switch(this.type) {
@@ -504,6 +527,7 @@
                 }
             };
 
+			//Enemy object's generic out of bounds check.
             Enemy.prototype.checkOOB = function(){
                 if(this.x > 1.05 * WIDTH || this.x < -0.05 * WIDTH){
                     return true;
@@ -514,6 +538,7 @@
                 }
             };
 
+			//Enemy object's generic shoot function.
             Enemy.prototype.doShoot = function(){
                 switch(this.type) {
 
@@ -695,6 +720,7 @@
                 this.tickCount++;
             };
 
+			//Enemy object's generic move function.
             Enemy.prototype.move = function(){
                 switch(this.type) {
 
@@ -769,10 +795,12 @@
                 }
             };
 
+			//Enemy object's generic collision check. Expensive operation.
             Enemy.prototype.checkCollision = function(shot){
                 return Math.sqrt(Math.pow(this.x - shot.x, 2) + Math.pow(this.y - shot.y, 2)) < shot.colissionRadius + this.colissionRadius;
             };
 
+			//Enemy object's generic "getting hit" reaction.
             Enemy.prototype.decrementHealth = function(damage){
                 this.health -= damage;
 				
@@ -785,34 +813,38 @@
                 return this.health < 1;
             };
 
+			//Player object.
+			// x - X position.
+			// y - Y position.
             function Player(x, y){
-                this.x = x;
-                this.y = y;
-                this.dx = 0;
-                this.dy = 0;
-                this.focus = false;
-                this.shoot = false;
-                this.power = 4;
-                this.damage = 1;
-                this.shotRadius = 50;
-				this.noFocusShotRadius = 50;
-				this.focusShotRadius = 25;
-                this.startRadians = 0;
-                this.colissionRadius = 3;
+                this.x = x;								//X Position
+                this.y = y;								//Y Position
+                this.dx = 0;							//Velocity X
+                this.dy = 0;							//Velocity Y
+                this.focus = false;						//True if player is focusing. False otherwise.
+                this.shoot = false;						//True if player is shooting. False otherwise.
+                this.power = 4;							//Number of orbitals player has.
+                this.damage = 1;						//Damage per shot.
+                this.shotRadius = 50;					//Radius of orbitals.
+				this.noFocusShotRadius = 50;			//Radius of orbitals if player is not focusing.
+				this.focusShotRadius = 25;				//Radius of orbitals if player is focusing.
+                this.startRadians = 0;					
+                this.colissionRadius = 3;				//Player colission radius.
                 this.incrementRadians = Math.PI/2;
-                this.health = 60;
-                this.invincibilityTime = 200;
-                this.cannotMoveTime = 30;
+                this.health = 30;						//Lives.
+                this.invincibilityTime = 200;			//Invincibility time after getting hit.
+                this.cannotMoveTime = 30;				//Time period in which player does not have control after being hit.
                 //this.distanceFromEdges = 10;
 
-                this.noFocusSpeed = 5;
-                this.focusSpeed = 2;
+                this.noFocusSpeed = 5;					//Player speed while not focused.
+                this.focusSpeed = 2;					//Player speed while focused.
 
-                this.speed = this.noFocusSpeed;
+                this.speed = this.noFocusSpeed;			//Player speed initialization.
 
-                this.deathTicks = -2000;
+                this.deathTicks = -2000;				//This will hold last time player has died for purposes of invincibility timing.
             }
 
+			//Draws the player object.
             Player.prototype.drawObject = function(){
                 if(this.deathTicks > tickCount - this.invincibilityTime && (tickCount / 6) % 2 == 0) {
                     ctx.fillStyle = "blue";
@@ -844,6 +876,7 @@
 				}
             };
 
+			//Player's move function.
             Player.prototype.move = function(){
 
                 if(player.deathTicks < tickCount - this.cannotMoveTime) {
@@ -883,6 +916,7 @@
 				}
             };
 
+			//Generates the player's shots.
             Player.prototype.doShoot = function() {
                 if(player.deathTicks < tickCount - this.cannotMoveTime) {
                     this.startRadians += Math.PI / 30;
@@ -904,11 +938,12 @@
                 }
             };
 
-
+			//Generic collision check against either enemies or their shots.
             Player.prototype.checkCollision = function(shot){
                 return Math.sqrt(Math.pow(this.x - shot.x, 2) + Math.pow(this.y - shot.y, 2)) < shot.colissionRadius + this.colissionRadius;
             };
 
+			//Gets called if the player gets hit and determines how to react.
             Player.prototype.deductHealth = function(){
                 this.health -= 1;
 
@@ -925,6 +960,11 @@
                 }
             };
 
+			//Playershot object.
+			// x - 		X position
+			// y - 		Y position
+			// dx -		Velocity X
+			// dy -		Velocity Y
             function playerShot(x, y, dx, dy){
                 this.x = x;
                 this.y = y;
@@ -933,6 +973,7 @@
                 this.colissionRadius = 5;
             }
 
+			//Draws the playerobject.
             playerShot.prototype.drawObject = function(){
                 ctx.fillStyle = "#002147";
                 ctx.beginPath();
@@ -941,12 +982,14 @@
                 ctx.fill();
             };
 
+			//Moves the playerobject.
             playerShot.prototype.move = function(){
                 this.x += this.dx;
                 this.y += this.dy;
                 this.dy -= 0.2;
             };
 
+			//Checks if the playershot is out of bounds to determine its cleanup.
             playerShot.prototype.checkOOB = function(){
                 if(this.x > 1.05 * WIDTH || this.x < -0.05 * WIDTH){
                     return true;
@@ -957,6 +1000,12 @@
                 }
             };
 
+			//Generic enemyshot object.
+			// x - 		X position
+			// y - 		Y position
+			// dx -		Velocity X
+			// dy -		Velocity Y
+			// type -	Determines how it acts.
             function enemyShot(x, y, dx, dy, type){
                 this.x = x;
                 this.y = y;
@@ -1037,6 +1086,7 @@
                 }
             }
 
+			//enemyShot object's generic draw function.
             enemyShot.prototype.drawObject = function(){
                 switch(this.type){
 
@@ -1197,6 +1247,8 @@
                 }
             };
 
+			//enemyShot's generic move function.
+			//Special behavior of shots goes here.
             enemyShot.prototype.move = function(){
                 this.x += this.dx;
                 this.y += this.dy;
@@ -1279,6 +1331,7 @@
                 }
             };
 
+			//enemyShot's out of bounds check for cleanup.
             enemyShot.prototype.checkOOB = function(){
                 if(this.x > 1.5 * WIDTH || this.x < -0.5 * WIDTH){
                     return true;
@@ -1289,6 +1342,7 @@
                 }
             };
 
+			//Key down actions.
             function onKeyDown(evt){
                 switch(evt.keyCode){
                     case 38: //Up Arrow
@@ -1321,6 +1375,7 @@
 
                         break;
 						
+					//This is a debug "delete the screen" button.
 //					case 88: //X					
 //							enemyList.splice(0, enemyList.length);
 //							enemyShotList.splice(0, enemyShotList.length);
@@ -1333,6 +1388,7 @@
                 }
             }
 
+			//Key up actions
             function onKeyUp(evt){
                 switch(evt.keyCode){
                     case 38: //Up arrow.
@@ -1382,11 +1438,13 @@
 //                y = event.pageY;
             }
 
+			//Plays the stage music.
             function playBgm() {
 				bgm.volume = 0.4;
 				bgm.play();
             }
 			
+			//Stops the stage music.
             function stopBgm() {
 				bgm.pause();
             }
@@ -1395,6 +1453,7 @@
     </head>
 
     <body onload="init()">
+		<!-- Grabs the audio from GitHub so that the .mp3 file need not come attached with the HTML file. -->
 		<audio id="bgm" src="https://raw.githubusercontent.com/dennLaw/CSCI-4070/gh-pages/Project%201/bgm.mp3"></audio>
 		
         <canvas id="canvas" width="1000" height="750">
