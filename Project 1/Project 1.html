@@ -45,14 +45,9 @@
                 window.addEventListener('keydown', onKeyDown, true);
                 window.addEventListener('mousepress', onMousePress, false);
 
-				//while(drawTitleScreen());
-				//ctx.fillStyle = "black";
-				//ctx.font = "100px Helvetica";
-				//ctx.fillText("Press Enter to Start", WIDTH * 0.1, HEIGHT * 0.4);
-				//while(!gameStart);
-				
-				playBgm();
-                tick();
+                setTimeout(function () {
+                    requestAnimationFrame(drawTitleScreen);
+                }, 1000 / fps);
             }
 
             //Generates one tick of game.
@@ -73,11 +68,24 @@
 			function drawTitleScreen(){
                 ctx.clearRect(0,0,WIDTH,HEIGHT);
 				
-				ctx.fillStyle = "black";
-				ctx.font = "100px Helvetica";
-				ctx.fillText("Press Enter to Start", WIDTH * 0.1, HEIGHT * 0.4);
+				ctx.textAlign = 'center';
+				ctx.font = "90px Helvetica";
 				
-				return !gameStart;
+				ctx.fillText("Press Enter to Start", WIDTH * 0.5, HEIGHT * 0.3);
+				ctx.fillText("Controls:", WIDTH * 0.5, HEIGHT * 0.6);
+				ctx.fillText("Arrow Keys to move", WIDTH * 0.5, HEIGHT * 0.7);
+				ctx.fillText("Z to shoot", WIDTH * 0.5, HEIGHT * 0.8);
+				ctx.fillText("Shift to focus", WIDTH * 0.5, HEIGHT * 0.9);
+				
+				if(gameStart){
+					playBgm();
+					tick();
+				}
+				else{
+					setTimeout(function () {
+						requestAnimationFrame(drawTitleScreen);
+					}, 1000 / fps);
+				}
 			}
 
             function draw(){
@@ -96,20 +104,23 @@
                 }
 				
 				if(player.health > 0){
+					ctx.textAlign = 'left';
 					ctx.fillStyle = "black";
 					ctx.font = "30px Helvetica";
 					ctx.fillText("Lives: " + player.health, 10, 50);
 				}
 				else{
+					ctx.textAlign = 'center';
 					ctx.fillStyle = "black";
 					ctx.font = "150px Helvetica";
-					ctx.fillText("Game Over", WIDTH * 0.1, HEIGHT * 0.4);
+					ctx.fillText("Game Over", WIDTH * 0.5, HEIGHT * 0.4);
 				}
 				
 				if(stageFinish){
+				ctx.textAlign = 'center';
 					ctx.fillStyle = "black";
 					ctx.font = "150px Helvetica";
-					ctx.fillText("Stage Clear", WIDTH * 0.1, HEIGHT * 0.4);
+					ctx.fillText("Stage Clear", WIDTH * 0.5, HEIGHT * 0.4);
 				}
             }
 
