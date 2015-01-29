@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html>
+    <head lang="en">
+        <meta charset="UTF-8">
+        <title>Project 1</title>
+        <style type="text/css">
+            canvas { border: 3px solid black; }
+        </style>
+        <script type="text/javascript">
+            var i, j;							//Placeholder for use in calcualtions.
+            var fps = 100;						//Frames per second.
+            var tempX;							//Placeholder for use in calcualtions.
+            var tempY;							//Placeholder for use in calcualtions.
+            var tempdX;							//Placeholder for use in calcualtions.
+            var tempdY;							//Placeholder for use in calcualtions.
+            var radians;						//Placeholder radians for use in shot generation.
+            var ctx;							//Canvas.
+            var gradient;						//Placeholder gradent variable for drawing.
+            var WIDTH;							//Canvas width.
+            var HEIGHT;							//Canvas height.
+            var tickCount = 0;					//Timer for the game.
+			var exchangeCount = false;			//Simple placeholder for swapping sides for one of the spawning algorithms.
+			var maxTotalCollisionRadius = 33; 	//This is player collision radius plus biggest enemy shot collision radius.
+            var playerShotList = new Array(); 	//This holds all the player's shots currently in play.
+            var enemyShotList = new Array();	//This holds all the enemy's shots currently in play.
+            var enemyList = new Array();		//This holds all the enemies currently in play.
+            var player = new Player(0, 0);		//This is you.
+			var bossStageDone = false;			//Placeholder variable to dictate shots to leave the screen once the stage completes.
+			var bossStageDone2 = false;			//Placeholder variable to dictate shots to leave the screen once the stage completes.
+            var bgm;							//Stage music.
+			var stageFinish = false;			//False if the stage is in progress, True if the stage is complete.
+			var gameStart = false;				//Check if the the player requests to start the game.
+
+            function init(){
+				//Initialize Canvas.
+                ctx = document.getElementById('canvas').getContext("2d");
+                WIDTH = ctx.canvas.width;
+                HEIGHT = ctx.canvas.height;
+				
+				//Initialize BGM variable.
+				bgm = document.getElementById('bgm');
+
+				//Initialize player position.
+                player.x = WIDTH/2;
+                player.y = HEIGHT * 3 / 4;
+
+				//Initialize event listeners.
+                window.addEventListener('keyup', onKeyUp, true);
+                window.addEventListener('keydown', onKeyDown, true);
+                //window.addEventListener('mousepress', onMousePress, false);
+
+				//Goto title screen.
+                setTimeout(function () {
+                    requestAnimationFrame(drawTitleScreen);
+                }, 1000 / fps);
+            }
+
+            //Generates one tick of game.
+            function tick(){
+                generateObjects();
+                moveObjects();
+                checkOffScreen();
+                checkCollisions();
+                draw();
+                tickCount++;
+
+//                window.requestAnimationFrame(tick);
+				//Calls another tick of the game with 100 FPS.
+                setInterval(function () {
+                    requestAnimationFrame(tick);
+                }, 1000 / fps);
+            }
+			
+			//Draws the title screen, shows instructions, and prompts for the player to press enter to start the game.
+			//If the player hits enter, it begins the game.
+			function drawTitleScreen(){
+                ctx.clearRect(0,0,WIDTH,HEIGHT);
+				
+				ctx.textAlign = 'center';
+				ctx.font = "90px Helvetica";
+				
+				ctx.fillText("Press Enter to Start", WIDTH * 0.5, HEIGHT * 0.3);
+				ctx.fillText("Controls:", WIDTH * 0.5, HEIGHT * 0.6);
+				ctx.fillText("Arrow Keys to move", WIDTH * 0.5, HEIGHT * 0.7);
+				ctx.fillText("Z to shoot", WIDTH * 0.5, HEIGHT * 0.8);
+				ctx.fillText("Shift to focus", WIDTH * 0.5, HEIGHT * 0.9);
+				
+				if(gameStart){
+					playBgm();
+					tick();
+				}
+				else{
+					setTimeout(function () {
+						requestAnimationFrame(drawTitleScreen);
+					}, 1000 / fps);
+				}
+			}
+
+			//Draws the gamestate.
+            function draw(){
+                ctx.clearRect(0,0,WIDTH,HEIGHT);
+
+                player.drawObject();
+
+                for(i = 0; i < playerShotList.length; i++){
+                    playerShotList[i].drawObject();
+                }
+                for(i = 0; i < enemyShotList.length; i++){
+                    enemyShotList[i].drawObject();
+                }
+                for(i = 0; i < enemyList.length; i++){
+                    enemyList[i].drawObject();
+                }
+				
+				//Display lives if lives > 0. Otherwise, display game over.
+				if(player.health > 0){
+					ctx.textAlign = 'left';
+					ctx.fillStyle = "black";
+					ctx.font = "30px Helvetica";
+					ctx.fillText("Lives: " + player.health, 10, 50);
+				}
+				else{
+					ctx.textAlign = 'center';
+					ctx.fillStyle = "black";
+					ctx.font = "150px Helvetica";
+					ctx.fillText("Game Over", WIDTH * 0.5, HEIGHT * 0.4);
+				}
+				
+				//If the stage is complete, display the victory text.
+				if(stageFinish){
+					ctx.textAlign = 'center';
+					ctx.fillStyle = "black";
+					ctx.font = "150px Helvetica";
+					ctx.fillText("Stage Clear", WIDTH * 0.5, HEIGHT * 0.4);
+				}
+            }
+
+			//Moves objects
+            function moveObjects(){
+                player.move();
+
+                for(i = 0; i < enemyList.length; i++){
+                    enemyList[i].move();
+                }
+                for(i = 0; i < enemyShotList.length; i++){
+                    enemyShotList[i].move();
+                }
+                for(i = 0; i < playerShotList.length; i++){
+                    playerShotList[i].move();
+                }
+            }
+
+            //Check against collisions and work accordingly.
+            function checkCollisions() {
+                //200 ticks of invincibility after being hit.
+                if(player.deathTicks < tickCount - player.invincibilityTime) {
+					tempX = player.x + maxTotalCollisionRadius;
+					tempdX = player.x - maxTotalCollisionRadius;
+					tempY = player.y + maxTotalCollisionRadius;
+					tempdY = player.y - maxTotalCollisionRadius;
+					
+                    for(i = 0; i < enemyShotList.length; i++) {
+						//Begin check of "is the enemy below the line where it is possible for them to connect?" first to improve performance.
+						if(enemyShotList[i].y > tempdY && enemyShotList[i].x < tempX && enemyShotList[i].x > tempdX && enemyShotList[i].y < tempY){
+							if(player.checkCollision(enemyShotList[i])) {
+								player.deductHealth();
+								enemyShotList.splice(i, 1);
+							}
+						}
+                    }
+					
+					for(i = 0; i < enemyList.length; i++){
+						if(player.checkCollision(enemyList[i])){
+							player.deductHealth();
+						}
+					}
+                }
+
+                for(i = 0; i < playerShotList.length; i++) {
+                    for (j = 0; j < enemyList.length; j++) {
+//						if(Math.abs(enemyList[j].y - playerShotList[i].y) < playerShotList[i].colissionRadius + enemyList[j].colissionRadius) {
+
+						//Throws an error...? Not sure what's happening. This is supposed to make for less work when checking playershot colissions.
+//						if(enemyList[j].y + playerShotList[i].colissionRadius + enemyList[j].colissionRadius > playerShotList[i].y){
+							while(j < enemyList.length && i < playerShotList.length && enemyList[j].checkCollision(playerShotList[i])){
+								if(enemyList[j].decrementHealth(player.damage)){
+									enemyList.splice(j, 1);
+								}
+
+								playerShotList.splice(i,1);
+							}
+//						}
+                    }
+                }
+            }
+
+            //Check for OOB to remove elements that are unused.
+            function checkOffScreen(){
+                for(i = 0; i < enemyList.length; i++){
+                    if(enemyList[i].checkOOB()){
+                        enemyList.splice(i, 1);
+                    }
+                }
+                for(i = 0; i < enemyShotList.length; i++){
+                    if(enemyShotList[i].checkOOB()){
+                        enemyShotList.splice(i, 1);
+                    }
+                }
+                for(i = 0; i < playerShotList.length; i++){
+                    if(playerShotList[i].checkOOB()){
+                        playerShotList.splice(i, 1);
+                    }
+                }
+            }
+
+            //Handles enemy spawning and bullet spawning, in that order.
+            function generateObjects(){
+
+				//Begin stage spawning.
+                if(tickCount > 55 && tickCount < 455 && (tickCount - 55) % 20 == 0 && (tickCount - 55)/105 % 2 < 1){
+                    enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, -1/40, -1.5/40, 0));
+                }
+				
+				if(tickCount > 455 && tickCount < 855 && (tickCount - 55) % 20 == 0 && (tickCount - 55)/105 % 2 < 1){
+                    enemyList.push(new Enemy(0, 0, 5, 2.5, 1/40, -1.5/40, 0));
+                }
+
+                if(tickCount == 895){
+                    enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, 1/40, -0.5/40, 1));
+                }
+				
+				if(tickCount > 1955 && tickCount < 2455 && (tickCount - 55) % 30 == 0 && (tickCount - 55)/105 % 2 < 1){
+                    enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, -1/40, -1.5/40, 0));
+                    enemyList.push(new Enemy(0, 0, 5, 2.5, 1/40, -1.5/40, 0));
+				}
+				
+				if(tickCount > 2455 && tickCount < 3925 && tickCount % 35 == 0){
+					if((tickCount - 55)/105 % 2 < 1){
+						enemyList.push(new Enemy(WIDTH + 30, HEIGHT * 0.1, -1, 0, 0, 0.025, 3));
+					}
+					else if(tickCount > 2560){
+						enemyList.push(new Enemy(-30, HEIGHT * 0.1, 1, 0, 0, 0.025, 3));
+					}
+					
+					if(tickCount % 210 == 0){
+						if(exchangeCount){
+							enemyList.push(new Enemy(0, 0, 5, 2.5, 1/40, -1.5/40, 0));
+						}
+						else{
+							enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, -1/40, -1.5/40, 0));
+						}
+						
+						exchangeCount = !exchangeCount;
+					}
+				}
+				
+				if(tickCount > 4275 && tickCount < 4360 && tickCount % 5 == 0){
+                    enemyList.push(new Enemy(WIDTH * 0.1, -0.05 * HEIGHT, 10, 6, 2/40, 4/40, 4));
+                    enemyList.push(new Enemy(WIDTH * 0.9, -0.05 * HEIGHT, -10, 6, -2/40, 4/40, 4));
+				}
+				
+				if(tickCount == 4360){
+					enemyList.splice(0, enemyList.length);
+					enemyShotList.splice(0, enemyShotList.length);
+					
+                    enemyList.push(new Enemy(WIDTH, 0, -5, 2.5, 1/40, -0.75/40, 5));
+				}
+				//End stage spawning.
+				
+                player.doShoot();
+
+                for(i = 0; i < enemyList.length; i++){
+                    enemyList[i].doShoot();
+                }
+            }
+
+			//The generic Enemy object.
+			// x - 		X position
+			// y - 		Y position
+			// dx -		Velocity X
+			// dy -		Velocity Y
+			// ddx -	Acceleration X
+			// ddy -	Acceleration Y
+            function Enemy(x, y, dx, dy, ddx, ddy, type){
+				//Type defines the behavior of the enemy.
+                this.type = type;
+
+                this.x = x;
+                this.y = y;
+                this.dx = dx;
+                this.dy = dy;
+                this.ddx = ddx;
+                this.ddy = ddy;
+                this.tickCount = 0;
+
+                switch(type) {
+
+                    case 0:
+
+                            this.health = 10;
+                            this.shotRadius = 50;
+                            this.startRadians = 0;
+                            this.colissionRadius = 10;
+                            this.incrementRadians = Math.PI / 2;
+
+                        break;
+
+                    case 1:
+
+                            this.health = 3000;
+							this.maxHealth = this.health;
+                            this.shotRadius = 5;
+                            this.startRadians = 0;
+                            this.colissionRadius = 35;
+                            this.incrementRadians = Math.PI / 2;
+
+                        break;
+
+                    case 2:
+
+                            this.health = 9000;
+                            this.shotRadius = 5;
+                            this.startRadians = 0;
+                            this.colissionRadius = 70;
+                            this.incrementRadians = Math.PI / 2;
+
+                        break;
+						
+					case 3:
+
+                            this.health = 100;
+                            this.shotRadius = 15;
+                            this.startRadians = 0;
+                            this.colissionRadius = 25;
+                            this.incrementRadians = Math.PI / 2;
+
+                        break;
+						
+					case 4:
+
+                            this.health = 1;
+                            this.shotRadius = 15;
+                            this.startRadians = 0;
+                            this.colissionRadius = 25;
+                            this.incrementRadians = Math.PI / 2;
+
+                        break;
+						
+					case 5:
+
+                            this.health = 13000;
+							this.maxHealth = this.health;
+                            this.shotRadius = 4;
+                            this.startRadians = Math.PI/24;
+                            this.colissionRadius = 35;
+                            this.incrementRadians = Math.PI / 2;
+							this.nextStageTick = 0;
+							this.lineRadians = 0;
+
+                        break;
+                }
+            }
+
+			//Enemy object's generic draw function.
+            Enemy.prototype.drawObject = function(){
+
+                switch(this.type) {
+
+                    case 0:
+                            ctx.fillStyle = "green";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+
+                    case 1:
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 40);
+                            gradient.addColorStop(0, "green");
+                            gradient.addColorStop(0.75, "green");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 40, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+							
+							ctx.strokeStyle = "#B22222";
+							ctx.lineWidth   = 5;
+							ctx.beginPath();
+							tempX = ((1 - this.health/this.maxHealth) * 2 - 0.5) * Math.PI;
+							tempY = 1.5 * Math.PI;
+							ctx.arc(this.x, this.y, 75, tempX, tempY, false);
+							ctx.arc(this.x, this.y, 75, tempY, tempX, true);
+							ctx.closePath();
+							ctx.stroke();
+
+                        break;
+
+                    case 2:
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 75);
+                            gradient.addColorStop(0, "orange");
+                            gradient.addColorStop(0.75, "orange");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 75, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+						
+					case 3:
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 30);
+                            gradient.addColorStop(0, "#4682B4");
+                            gradient.addColorStop(0.75, "#4682B4");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 30, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+						
+					case 4:
+                            ctx.fillStyle = "black";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 30, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+					
+					case 5:
+		
+							i = this.health/this.maxHealth; //Percentage health.
+							
+							if(i < 0.2){
+								ctx.lineWidth = 10;
+								
+								for(j = 0; j < 6; j++){
+									this.lineRadians += Math.PI/3;
+									ctx.strokeStyle = "#2F4F4F";
+									ctx.beginPath();
+									ctx.moveTo(this.x, this.y);
+									ctx.lineTo(this.x + 2 * HEIGHT * Math.cos(this.lineRadians), this.y - 2 * HEIGHT * Math.sin(this.lineRadians));
+									ctx.closePath();
+									ctx.stroke();
+								}
+							}
+							
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 40);
+                            gradient.addColorStop(0, "#3CB371");
+                            gradient.addColorStop(0.75, "#3CB371");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 40, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+							
+							if(i > 0.2){
+								if(i > 0.8){
+									ctx.strokeStyle = "#448E88";
+								}
+								else if(i > 0.6){
+									ctx.strokeStyle = "#864D50";
+								}
+								else if(i > 0.4){
+									ctx.strokeStyle = "#9C3839";
+								}
+								else{
+									ctx.strokeStyle = "#B22222";
+								}
+								
+								ctx.lineWidth = 5;
+								ctx.beginPath();
+								ctx.arc(this.x, this.y, 75, 0, 2*Math.PI, false);
+								ctx.closePath();
+								ctx.stroke();
+							}
+							
+							
+							if(i > 0.8){
+								ctx.strokeStyle = "#20B2AA";
+							}
+							else if(i > 0.6){
+								ctx.strokeStyle = "#448E88";
+							}
+							else if(i > 0.4){
+								ctx.strokeStyle = "#864D50";
+							}
+							else if(i > 0.2){
+								ctx.strokeStyle = "#9C3839";
+							}
+							else{
+								ctx.strokeStyle = "#B22222";
+							}
+							
+							ctx.lineWidth = 5;
+							ctx.beginPath();
+//							tempX = ((1 - this.health/this.maxHealth) * 2 - 0.5) * Math.PI;
+							tempX = ((1 - (5 * (i % 0.2))) * 2 - 0.5) * Math.PI;
+							tempY = 1.5 * Math.PI;
+							ctx.arc(this.x, this.y, 75, tempX, tempY, false);
+							ctx.arc(this.x, this.y, 75, tempY, tempX, true);
+							ctx.closePath();
+							ctx.stroke();
+							
+							ctx.strokeStyle = "#8B0000";
+							ctx.beginPath();
+							ctx.moveTo(this.x, this.y - 70);
+							ctx.lineTo(this.x, this.y - 80);
+							ctx.closePath();
+							ctx.stroke();
+							
+							ctx.strokeStyle = "black";
+							ctx.beginPath();
+							ctx.moveTo(this.x + 70 * Math.cos(tempX), this.y + 70 * Math.sin(tempX));
+							ctx.lineTo(this.x + 80 * Math.cos(tempX), this.y + 80 * Math.sin(tempX));
+							ctx.closePath();
+							ctx.stroke();
+							
+                        break;
+                }
+            };
+
+			//Enemy object's generic out of bounds check.
+            Enemy.prototype.checkOOB = function(){
+                if(this.x > 1.05 * WIDTH || this.x < -0.05 * WIDTH){
+                    return true;
+                }
+
+                if(this.y > 1.05 * HEIGHT || this.y < -0.05 * HEIGHT){
+                    return true;
+                }
+            };
+
+			//Enemy object's generic shoot function.
+            Enemy.prototype.doShoot = function(){
+                switch(this.type) {
+
+                    case 0:
+                            this.startRadians += Math.PI / 30;
+                            this.incrementRadians += Math.PI / 180;
+
+                            if (this.tickCount % 5 == 0) {
+
+                                radians = this.startRadians;
+
+                                tempX = this.x - this.shotRadius * Math.cos(radians);
+                                tempY = this.y - this.shotRadius * Math.sin(radians);
+                                tempdX = 3 * (player.x - tempX) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+                                tempdY = 3 * (player.y - tempY) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 0));
+                            }
+
+                        break;
+
+                    case 1:
+                            if(this.tickCount > 200){
+                                this.startRadians += Math.PI / 90;
+
+                                if (this.tickCount % 5 == 0) {
+                                    this.incrementRadians += Math.PI / 180;
+
+                                    radians = this.startRadians;
+
+                                    for(i = 0; i < 12; i++) {
+                                        radians += this.incrementRadians;
+                                        tempX = this.x - this.shotRadius * Math.cos(radians);
+                                        tempY = this.y - this.shotRadius * Math.sin(radians);
+                                        tempdX = -this.shotRadius * Math.cos(radians);
+                                        tempdY = -this.shotRadius * Math.sin(radians);
+                                        enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 1));
+                                    }
+                                }
+                            }
+
+                        break;
+						
+					case 2:
+
+                        break;
+						
+					case 3:
+                            if(this.tickCount % 20 < 1){
+								tempX = this.x;
+                                tempY = this.y;
+                                tempdX = -(this.x - WIDTH/2) / Math.sqrt(Math.pow(this.x - WIDTH/2, 2));
+                                tempdY = 0;
+								
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 6, tempdY, 3));
+//                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 4, tempdY, 3));
+//                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 2, tempdY, 3));
+							}
+
+                        break;
+						
+					case 4:
+                            if(this.tickCount % 2 == 0){
+								tempX = this.x;
+                                tempY = this.y;
+                                tempdX = (player.x - tempX) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+                                tempdY = (player.y - tempY) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+								
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 40, tempdY * 40, 4));
+								
+                                tempdX = (player.x + 100 - tempX) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+								
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 40, tempdY * 40, 4));
+								
+                                tempdX = (player.x - 100 - tempX) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+								
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 40, tempdY * 40, 4));
+							}
+
+                        break;
+						
+					case 5:
+					
+                        i = this.health/this.maxHealth; //Percentage health.
+						
+						if(i == 0.8 || i == 0.6 || i == 0.4 || i == 0.2){
+							this.nextStageTick = this.tickCount;
+						}
+						
+						if(this.tickCount > 200 && this.tickCount - this.nextStageTick > 30){
+							if(i > 0.8){
+								if(this.tickCount % 5 == 0){
+									this.startRadians += Math.PI/12;
+									this.startRadians %= Math.PI;
+									
+                                    tempdX = -this.shotRadius * Math.cos(this.startRadians + 0.5 * Math.PI);
+                                    tempdY = this.shotRadius * Math.sin(this.startRadians + 0.5 * Math.PI);
+                                    tempX = this.x - tempdX;
+                                    tempY = this.y - tempdY;
+                                    enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 5));
+									
+									tempdX = this.shotRadius * Math.cos(this.startRadians + 0.5 * Math.PI);
+                                    tempX = this.x - tempdX;
+                                    enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 5));
+								}
+							}
+							else if(i > 0.6){
+								if(this.tickCount % 10 == 0){
+									this.startRadians += Math.PI/24;
+									
+                                    tempdX = this.shotRadius * Math.cos(this.startRadians * Math.PI);
+                                    tempdY = -this.shotRadius * Math.sin(this.startRadians * Math.PI);
+                                    tempX = this.x - tempdX;
+                                    tempY = this.y - tempdY;
+									
+									if(tempdY > 0){
+										tempdY = -tempdY;
+									}
+                                    enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 8));
+								}
+								
+								if(this.tickCount % 40 == 0){
+								
+									enemyShotList.push(new enemyShot(this.x, this.y, this.shotRadius * Math.cos(8/6*Math.PI), -this.shotRadius * Math.sin(8/6*Math.PI), 10));
+									enemyShotList.push(new enemyShot(this.x, this.y, this.shotRadius * Math.cos(8.5/6*Math.PI), -this.shotRadius * Math.sin(8.5/6*Math.PI), 10));
+									enemyShotList.push(new enemyShot(this.x, this.y, this.shotRadius * Math.cos(9.5/6*Math.PI), -this.shotRadius * Math.sin(9.5/6*Math.PI), 10));
+									enemyShotList.push(new enemyShot(this.x, this.y, this.shotRadius * Math.cos(10/6*Math.PI), -this.shotRadius * Math.sin(10/6*Math.PI), 10));
+								}
+							}
+							else if(i > 0.4){
+								
+								if(this.tickCount % 50 == 0){
+									this.startRadians += Math.PI/24;
+									
+                                    tempdX = this.shotRadius * Math.cos(this.startRadians * Math.PI);
+                                    tempdY = -this.shotRadius * Math.sin(this.startRadians * Math.PI);
+                                    tempX = this.x - tempdX;
+                                    tempY = this.y - tempdY;
+									
+                                    enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 11));
+                                    enemyShotList.push(new enemyShot(tempX, tempY, 1.025 * tempdX, 1.025 * tempdY, 11));
+                                    enemyShotList.push(new enemyShot(tempX, tempY, 1.05 * tempdX, 1.05 * tempdY, 11));
+								}
+							}
+							else if(i > 0.2){
+								bossStageDone = true;
+							
+								if(this.tickCount % 20 == 0){
+									this.startRadians += Math.PI/23;
+									this.startRadians %= Math.PI/8;
+									
+                                    tempdX = this.shotRadius * Math.cos(this.startRadians + 0.5 * Math.PI);
+                                    tempdY = -this.shotRadius * Math.sin(this.startRadians + 0.5 * Math.PI);
+                                    tempX = this.x - tempdX;
+                                    tempY = this.y - tempdY;
+									
+                                    enemyShotList.push(new enemyShot(tempX, tempY, -tempdX, tempdY, 12));
+                                    enemyShotList.push(new enemyShot(tempX, tempY, tempdX, tempdY, 12));
+								}
+							}
+							else{
+								bossStageDone2 = true;
+								this.lineRadians += Math.PI/1200;
+									
+								if(this.tickCount % 10 == 0){
+									
+									tempX = Math.sqrt(Math.pow(this.x - player.x, 2) + Math.pow(this.y - player.y, 2));
+									for(j = 0; j < 6; j++){
+										this.lineRadians += Math.PI/3;
+										
+										enemyShotList.push(new enemyShot(this.x + tempX * Math.cos(this.lineRadians), this.y - tempX * Math.sin(this.lineRadians), 0, 0, 13));
+									}
+								}
+							}
+						}
+						
+                        break;
+                }
+
+                this.tickCount++;
+            };
+
+			//Enemy object's generic move function.
+            Enemy.prototype.move = function(){
+                switch(this.type) {
+
+                    case 0:
+                            this.x += this.dx;
+                            this.y += this.dy;
+                            this.dx += this.ddx;
+                            this.dy += this.ddy;
+
+                        break;
+
+                    case 1:
+                            if(this.tickCount < 200){
+                                this.x += this.dx;
+                                this.y += this.dy;
+                                this.dx += this.ddx;
+                                this.dy += this.ddy;
+                            }
+                            else if(this.tickCount < 2000){
+                                this.dx *= 0.9;
+                                this.dy *= 0.9;
+                                this.x += this.dx;
+                                this.y += this.dy;
+                            }
+                            else{
+                                this.dy -= 0.01;
+                                this.y += this.dy;
+                            }
+                        break;
+						
+					case 2:
+						
+						break;
+						
+					case 3:
+						
+						this.x += this.dx;
+                        this.y += this.dy;
+                        this.dx += this.ddx;
+                        this.dy += this.ddy;
+							
+						break;
+						
+					case 4:
+						
+						this.x += this.dx;
+                        this.y += this.dy;
+                        this.dx += this.ddx;
+                        this.dy += this.ddy;
+						
+						break;
+						
+					case 5:
+                            if(this.tickCount < 200){
+                                this.x += this.dx;
+                                this.y += this.dy;
+                                this.dx += this.ddx;
+                                this.dy += this.ddy;
+                            }
+                            else if(this.health/this.maxHealth > 0.2){
+                                this.dx *= 0.9;
+                                this.dy *= 0.9;
+                                this.x += this.dx;
+                                this.y += this.dy;
+                            }
+							else{
+								this.x = (49*this.x + WIDTH/2)/50;
+								this.y = (49*this.y + HEIGHT/2)/50;
+							}
+							
+                        break;
+                }
+            };
+
+			//Enemy object's generic collision check. Expensive operation.
+            Enemy.prototype.checkCollision = function(shot){
+                return Math.sqrt(Math.pow(this.x - shot.x, 2) + Math.pow(this.y - shot.y, 2)) < shot.colissionRadius + this.colissionRadius;
+            };
+
+			//Enemy object's generic "getting hit" reaction.
+            Enemy.prototype.decrementHealth = function(damage){
+                this.health -= damage;
+				
+				if(this.type == 5 && this.health == 0){
+					stageFinish = true;
+					enemyShotList.splice(0, enemyShotList.length);
+					stopBgm();
+				}
+
+                return this.health < 1;
+            };
+
+			//Player object.
+			// x - X position.
+			// y - Y position.
+            function Player(x, y){
+                this.x = x;								//X Position
+                this.y = y;								//Y Position
+                this.dx = 0;							//Velocity X
+                this.dy = 0;							//Velocity Y
+                this.focus = false;						//True if player is focusing. False otherwise.
+                this.shoot = false;						//True if player is shooting. False otherwise.
+                this.power = 4;							//Number of orbitals player has.
+                this.damage = 1;						//Damage per shot.
+                this.shotRadius = 50;					//Radius of orbitals.
+				this.noFocusShotRadius = 50;			//Radius of orbitals if player is not focusing.
+				this.focusShotRadius = 25;				//Radius of orbitals if player is focusing.
+                this.startRadians = 0;					
+                this.colissionRadius = 3;				//Player colission radius.
+                this.incrementRadians = Math.PI/2;
+                this.health = 30;						//Lives.
+                this.invincibilityTime = 200;			//Invincibility time after getting hit.
+                this.cannotMoveTime = 30;				//Time period in which player does not have control after being hit.
+                //this.distanceFromEdges = 10;
+
+                this.noFocusSpeed = 5;					//Player speed while not focused.
+                this.focusSpeed = 2;					//Player speed while focused.
+
+                this.speed = this.noFocusSpeed;			//Player speed initialization.
+
+                this.deathTicks = -2000;				//This will hold last time player has died for purposes of invincibility timing.
+            }
+
+			//Draws the player object.
+            Player.prototype.drawObject = function(){
+                if(this.deathTicks > tickCount - this.invincibilityTime && (tickCount / 6) % 2 == 0) {
+                    ctx.fillStyle = "blue";
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 15, 0, Math.PI*2, true);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                else{
+                    ctx.fillStyle = "black";
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 15, 0, Math.PI * 2, true);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+				
+				if(player.focus){
+					ctx.fillStyle = "red";
+					ctx.beginPath();
+					ctx.arc(this.x, this.y, 4, 0, Math.PI * 2, true);
+					ctx.closePath();
+					ctx.fill();
+
+					ctx.fillStyle = "white";
+					ctx.beginPath();
+					ctx.arc(this.x, this.y, 3, 0, Math.PI * 2, true);
+					ctx.closePath();
+					ctx.fill();
+				}
+            };
+
+			//Player's move function.
+            Player.prototype.move = function(){
+
+                if(player.deathTicks < tickCount - this.cannotMoveTime) {
+                    if (!player.focus && (Math.abs(player.dy) == player.focusSpeed || Math.abs(player.dx) == player.focusSpeed)) {
+                        player.dx *= player.noFocusSpeed / player.focusSpeed;
+                        player.dy *= player.noFocusSpeed / player.focusSpeed;
+                    }
+
+                    if (player.focus && (Math.abs(player.dy) == player.noFocusSpeed || Math.abs(player.dx) == player.noFocusSpeed)) {
+                        player.dx *= player.focusSpeed / player.noFocusSpeed;
+                        player.dy *= player.focusSpeed / player.noFocusSpeed;
+                    }
+
+                    if (!(this.x > WIDTH || this.x < 0)) {
+                        this.x += this.dx;
+                    }
+                    else if (this.x > WIDTH && this.dx < 0 || this.x < 0 && this.dx > 0) {
+                        this.x += this.dx;
+                    }
+
+                    if (!(this.y > HEIGHT || this.y < 0)) {
+                        this.y += this.dy;
+                    }
+                    else if (this.y > HEIGHT && this.dy < 0 || this.y < 0 && this.dy > 0) {
+                        this.y += this.dy;
+                    }
+                }
+                else{
+                    this.y += -2;
+                }
+				
+				if(this.focus){
+					this.shotRadius = (8*this.shotRadius + this.focusShotRadius) / 9
+				}
+				else{
+					this.shotRadius = (8*this.shotRadius + this.noFocusShotRadius) / 9
+				}
+            };
+
+			//Generates the player's shots.
+            Player.prototype.doShoot = function() {
+                if(player.deathTicks < tickCount - this.cannotMoveTime) {
+                    this.startRadians += Math.PI / 30;
+                    this.incrementRadians = 2 * Math.PI / this.power;
+                    //player.incrementRadians += Math.PI/180;
+
+                    if (this.deathTicks < tickCount + 20 && this.shoot == true) {
+                        radians = this.startRadians;
+
+                        for (i = 0; i < this.power; i++) {
+                            radians += this.incrementRadians;
+                            tempdX = 0;
+                            tempdY = -10;
+                            tempX = this.x - this.shotRadius * Math.cos(radians) - tempdX;
+                            tempY = this.y - 0.5 * (this.shotRadius * Math.sin(radians)) - tempdY;
+                            playerShotList.push(new playerShot(tempX, tempY, tempdX, tempdY));
+                        }
+                    }
+                }
+            };
+
+			//Generic collision check against either enemies or their shots.
+            Player.prototype.checkCollision = function(shot){
+                return Math.sqrt(Math.pow(this.x - shot.x, 2) + Math.pow(this.y - shot.y, 2)) < shot.colissionRadius + this.colissionRadius;
+            };
+
+			//Gets called if the player gets hit and determines how to react.
+            Player.prototype.deductHealth = function(){
+                this.health -= 1;
+
+                if(this.health < 1){
+					//Game over, move player to the "void".
+                    this.x = WIDTH / 2;
+					this.y = 10 * HEIGHT;
+                }
+                else{
+                    //Insert "died" animation here.
+                    this.deathTicks = tickCount;
+                    this.x = WIDTH / 2;
+                    this.y = HEIGHT + 20;
+                }
+            };
+
+			//Playershot object.
+			// x - 		X position
+			// y - 		Y position
+			// dx -		Velocity X
+			// dy -		Velocity Y
+            function playerShot(x, y, dx, dy){
+                this.x = x;
+                this.y = y;
+                this.dx = dx;
+                this.dy = dy;
+                this.colissionRadius = 5;
+            }
+
+			//Draws the playerobject.
+            playerShot.prototype.drawObject = function(){
+                ctx.fillStyle = "#002147";
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 5, 0, Math.PI*2, true);
+                ctx.closePath();
+                ctx.fill();
+            };
+
+			//Moves the playerobject.
+            playerShot.prototype.move = function(){
+                this.x += this.dx;
+                this.y += this.dy;
+                this.dy -= 0.2;
+            };
+
+			//Checks if the playershot is out of bounds to determine its cleanup.
+            playerShot.prototype.checkOOB = function(){
+                if(this.x > 1.05 * WIDTH || this.x < -0.05 * WIDTH){
+                    return true;
+                }
+
+                if(this.y > 1.05 * HEIGHT || this.y < -0.05 * HEIGHT){
+                    return true;
+                }
+            };
+
+			//Generic enemyshot object.
+			// x - 		X position
+			// y - 		Y position
+			// dx -		Velocity X
+			// dy -		Velocity Y
+			// type -	Determines how it acts.
+            function enemyShot(x, y, dx, dy, type){
+                this.x = x;
+                this.y = y;
+                this.dx = dx;
+                this.dy = dy;
+                this.type = type;
+				this.tickCount = 0;
+
+                switch(this.type){
+                    case 0:
+
+                            this.colissionRadius = 20;
+                        break;
+
+                    case 1:
+
+                            this.colissionRadius = 10;
+                        break;
+						
+					case 2:
+
+                        break;
+						
+					case 3:
+
+                            this.colissionRadius = 30;
+                        break;
+						
+					case 4:
+
+                            this.colissionRadius = 10;
+                        break;
+						
+					case 5:
+					
+							this.colissionRadius = 10;
+						break;	
+						
+					case 6:
+					
+							this.colissionRadius = 10;
+						break;
+						
+					case 7:
+					
+							this.colissionRadius = 10;
+						break;
+						
+					case 8:
+					
+							this.colissionRadius = 10;
+						break;
+						
+					case 9:
+					
+							this.colissionRadius = 10;
+						break;
+						
+					case 10:
+					
+							this.colissionRadius = 20;
+						break;
+						
+					case 11:
+					
+							this.colissionRadius = 20;
+						break;
+						
+					case 12:
+					
+							this.colissionRadius = 10;
+						break;
+						
+					case 13:
+					
+							this.colissionRadius = 10;
+						break;
+                }
+            }
+
+			//enemyShot object's generic draw function.
+            enemyShot.prototype.drawObject = function(){
+                switch(this.type){
+
+                    case 0:
+
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 35);
+                            gradient.addColorStop(0, "red");
+                            gradient.addColorStop(0.5, "red");
+                            gradient.addColorStop(0.75, "transparent");
+                            gradient.addColorStop(0.95, "white");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 35, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+
+                    case 1:
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 10);
+                            gradient.addColorStop(0, "green");
+                            gradient.addColorStop(0.75, "green");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+						
+					case 2:
+					
+                        break;
+						
+					case 3:
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 35);
+                            gradient.addColorStop(0, "#00CED1");
+                            gradient.addColorStop(0.75, "#00CED1");
+                            gradient.addColorStop(1, "transparent");
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 35, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+						
+						
+					case 4:
+                            ctx.fillStyle = "#580818";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+						
+					case 4:
+                            ctx.fillStyle = "#800000";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+
+                        break;
+						
+					case 5:
+					
+                            ctx.fillStyle = "#000080";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;	
+						
+					case 6:
+					
+                            ctx.fillStyle = "#48D1CC";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 7:
+					
+                            ctx.fillStyle = "#DC143C";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 8:
+					
+                            ctx.fillStyle = "#6B8E23";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 9:
+					
+                            ctx.fillStyle = "#2E8B57";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 10:
+					
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 35);
+                            gradient.addColorStop(0, "#006400");
+                            gradient.addColorStop(0.5, "#006400");
+                            gradient.addColorStop(0.75, "transparent");
+                            gradient.addColorStop(0.95, "white");
+							ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 20, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 11:
+					
+                            gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 35);
+                            gradient.addColorStop(0, "#9932CC");
+                            gradient.addColorStop(0.5, "#9932CC");
+                            gradient.addColorStop(0.75, "transparent");
+                            gradient.addColorStop(0.95, "white");
+							ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 20, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 12:
+					
+                            ctx.fillStyle = "#696969";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+						
+					case 13:
+					
+                            ctx.fillStyle = "#DC143C";
+                            ctx.beginPath();
+                            ctx.arc(this.x, this.y, 10, 0, Math.PI*2, true);
+                            ctx.closePath();
+                            ctx.fill();
+						break;
+                }
+            };
+
+			//enemyShot's generic move function.
+			//Special behavior of shots goes here.
+            enemyShot.prototype.move = function(){
+                this.x += this.dx;
+                this.y += this.dy;
+				this.tickCount++;
+				
+				switch(this.type){
+					case 5:
+					
+							if(this.tickCount == 40){
+							
+                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(7/6*Math.PI) - this.dy * Math.sin(7/6*Math.PI), this.dx * Math.sin(7/6*Math.PI) + this.dy * Math.cos(7/6*Math.PI), 6));
+//                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(8/6*Math.PI) - this.dy * Math.sin(8/6*Math.PI), this.dx * Math.sin(8/6*Math.PI) + this.dy * Math.cos(8/6*Math.PI), 6));
+                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(10/6*Math.PI) - this.dy * Math.sin(10/6*Math.PI), this.dx * Math.sin(10/6*Math.PI) + this.dy * Math.cos(10/6*Math.PI), 6));
+//                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(11/6*Math.PI) - this.dy * Math.sin(11/6*Math.PI), this.dx * Math.sin(11/6*Math.PI) + this.dy * Math.cos(11/6*Math.PI), 6));
+								
+								this.x = 10 * WIDTH;
+							}
+						break;	
+						
+					case 6:
+					
+							if(this.tickCount == 40){
+							
+							    enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(7/6*Math.PI) - this.dy * Math.sin(7/6*Math.PI), this.dx * Math.sin(7/6*Math.PI) + this.dy * Math.cos(7/6*Math.PI), 7));
+                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(8/6*Math.PI) - this.dy * Math.sin(8/6*Math.PI), this.dx * Math.sin(8/6*Math.PI) + this.dy * Math.cos(8/6*Math.PI), 7));
+                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(10/6*Math.PI) - this.dy * Math.sin(10/6*Math.PI), this.dx * Math.sin(10/6*Math.PI) + this.dy * Math.cos(10/6*Math.PI), 7));
+                                enemyShotList.push(new enemyShot(this.x, this.y, this.dx * Math.cos(11/6*Math.PI) - this.dy * Math.sin(11/6*Math.PI), this.dx * Math.sin(11/6*Math.PI) + this.dy * Math.cos(11/6*Math.PI), 7));
+
+								this.x = 10 * WIDTH;
+							}
+						break;
+						
+					case 8:
+							
+							if(this.x > WIDTH || this.x < 0 || this.y < 0){
+								tempX = this.x;
+                                tempY = this.y;
+                                tempdX = (player.x - tempX) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+                                tempdY = (player.y - tempY) / Math.sqrt(Math.pow(tempX - player.x, 2) + Math.pow(tempY - player.y, 2));
+								
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 2, tempdY * 2, 9));
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 3, tempdY * 3, 9));
+                                enemyShotList.push(new enemyShot(tempX, tempY, tempdX * 4, tempdY * 4, 9));
+								
+								this.x = 2*WIDTH;
+							}
+							
+						break;
+						
+					case 11:
+							if(this.tickCount < 1000 && !bossStageDone){
+								if(this.x > WIDTH || this.x < 0){
+									this.dx = -1.05 * this.dx;
+								}
+								
+								if(this.y < 0 || this.y > HEIGHT){
+									this.dy = -1.05 * this.dy;
+								}
+							}
+							
+						break;
+						
+					case 12:
+							if(this.tickCount < 1000 && !bossStageDone2){
+								
+								if(this.y < 0){
+									this.dy = 1.1 * this.dy;
+									this.y = HEIGHT;
+								}
+							}
+							
+						break;
+						
+					case 13:
+							if(this.tickCount > 415){
+								this.x = 2*WIDTH;
+							}
+							
+						break;
+                }
+            };
+
+			//enemyShot's out of bounds check for cleanup.
+            enemyShot.prototype.checkOOB = function(){
+                if(this.x > 1.5 * WIDTH || this.x < -0.5 * WIDTH){
+                    return true;
+                }
+
+                if(this.y > 1.5 * HEIGHT || this.y < -0.5 * HEIGHT){
+                    return true;
+                }
+            };
+
+			//Key down actions.
+            function onKeyDown(evt){
+                switch(evt.keyCode){
+                    case 38: //Up Arrow
+                        player.dy = -player.speed;
+
+                        break;
+
+                    case 40: //Down Arrow
+                        player.dy = player.speed;
+
+                        break;
+
+                    case 37: //Left Arrow
+                        player.dx = -player.speed;
+
+                        break;
+
+                    case 39: //Right Arrow
+                        player.dx = player.speed;
+
+                        break;
+
+                    case 16: //Shift
+                        player.focus = true;
+                        player.speed = player.focusSpeed;
+                        //player.shotRadius = 25;
+						
+					case 13: //Enter
+						gameStart = true;
+
+                        break;
+						
+					//This is a debug "delete the screen" button.
+//					case 88: //X					
+//							enemyList.splice(0, enemyList.length);
+//							enemyShotList.splice(0, enemyShotList.length);
+//						break;
+
+                    case 90: //Z
+                        player.shoot = true;
+
+                        break;
+                }
+            }
+
+			//Key up actions
+            function onKeyUp(evt){
+                switch(evt.keyCode){
+                    case 38: //Up arrow.
+                        if(player.dy < 0){
+                            player.dy = 0;
+                        }
+
+                        break;
+
+                    case 40: //Down Arrow
+                        if(player.dy > 0){
+                            player.dy = 0;
+                        }
+
+                        break;
+
+                    case 37: // Left Arrow
+                        if(player.dx < 0){
+                            player.dx = 0;
+                        }
+
+                        break;
+
+                    case 39: //Right Arrow
+                        if(player.dx > 0){
+                            player.dx = 0;
+                        }
+
+                        break;
+
+                    case 16: //Shift
+                        player.focus = false;
+                        player.speed = player.noFocusSpeed;
+                        //player.shotRadius = 50;
+
+                        break;
+
+                    case 90: //Z
+                        player.shoot = false;
+
+                        break;
+                }
+            }
+
+            function onMousePress(evt){
+//                x = event.pageX;
+//                y = event.pageY;
+            }
+
+			//Plays the stage music.
+            function playBgm() {
+				bgm.volume = 0.4;
+				bgm.play();
+            }
+			
+			//Stops the stage music.
+            function stopBgm() {
+				bgm.pause();
+            }
+
+        </script>
+    </head>
+
+    <body onload="init()">
+		<!-- Grabs the audio from GitHub so that the .mp3 file need not come attached with the HTML file. -->
+		<audio id="bgm" src="https://raw.githubusercontent.com/dennLaw/CSCI-4070/gh-pages/Project%201/bgm.mp3"></audio>
+		
+        <canvas id="canvas" width="1000" height="750">
+            Your browser does not support the canvas element.
+        </canvas>
+    </body>
+</html>
