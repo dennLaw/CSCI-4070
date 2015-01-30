@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+    <head lang="en">
+        <meta charset="UTF-8">
+        <title>Sort Visualization</title>
+        
+		<style type="text/css">
+            canvas { border: 3px solid black; }
+        </style>
+		<script type="text/javascript" src="Vector.js"></script>
+        <script type="text/javascript" src="Rectangle.js"></script>
+		<script type="text/javascript" src="Circle.js"></script>
+		<script type="text/javascript" src="Mouse.js"></script>
+		<script type="text/javascript">	
+			var fps = 60,
+				WIDTH,
+				HEIGHT,
+				ctx,
+				mouse = new Mouse(),
+				rectangle,
+				circle;
+			
+			function init(){
+				//Initialize Canvas.
+                ctx = document.getElementById('canvas').getContext("2d");
+                WIDTH = ctx.canvas.width;
+                HEIGHT = ctx.canvas.height;
+				
+                window.addEventListener('mousedown', onMouseDown, false);
+                window.addEventListener('mouseup', onMouseUp, false);
+				window.addEventListener('mousemove', onMouseMove, false);
+
+				rectangle = new Rectangle(WIDTH/2, HEIGHT/2, 100, 50),
+				circle = new Circle(WIDTH/2, HEIGHT/2, 25);
+				
+				tick();
+            }
+			
+			function tick(){
+				moveObjects();
+				checkColissions();
+				draw();
+				
+                setTimeout(function () {
+                    requestAnimationFrame(tick);
+                }, 1000 / fps);
+			}
+			
+			function draw(){
+				ctx.clearRect(0, 0, WIDTH, HEIGHT);
+				
+				rectangle.drawObject();
+				circle.drawObject();
+				
+				debug();
+			}
+			
+			function moveObjects(){
+				rectangle.move(mouse);
+				circle.move(mouse);
+			}
+			
+			function checkColissions(){
+				rectangle.checkColission(circle);
+				circle.checkColissionRotatingRectangle(rectangle);
+			}
+			
+			function debug(){
+				ctx.textAlign = 'left';
+				ctx.font = "15px Helvetica";
+				
+				ctx.fillText(circle.x, 0, 15);
+				ctx.fillText(circle.y, 0, 30);
+				ctx.fillText(rectangle.x, 0, 45);
+				ctx.fillText(rectangle.y, 0, 60);
+				ctx.fillText(rectangle.v1x, 0, 75);
+				ctx.fillText(rectangle.v1y, 0, 90);
+				ctx.fillText(rectangle.v2x, 0, 105);
+				ctx.fillText(rectangle.v2y, 0, 120);
+				ctx.fillText(rectangle.v3x, 0, 135);
+				ctx.fillText(rectangle.v3y, 0, 150);
+				ctx.fillText(rectangle.v4x, 0, 165);
+				ctx.fillText(rectangle.v4y, 0, 180);
+				ctx.fillText(rectangle.phi, 0, 195);
+				ctx.fillText(rectangle.r, 0, 210);
+				ctx.fillText(circle.x * (rectangle.v1x - rectangle.v2x) + circle.y * (rectangle.v1y - rectangle.v2y), 0, 225);
+				ctx.fillText(circle.x * (rectangle.v1x - rectangle.v3x) + circle.y * (rectangle.v1y - rectangle.v3y), 0, 240);
+			}
+			
+            function onMouseDown(evt){
+				mouse.down = true;
+            }
+			
+            function onMouseUp(evt){
+				mouse.down = false;
+            }
+			
+			function onMouseMove(evt){
+				mouse.x = evt.clientX || evt.pageX; 
+				mouse.y = evt.clientY || evt.pageY;
+			}
+		
+		</script>
+	</head>
+
+	<body onload="init()">
+		
+        <canvas id="canvas" width="1000" height="750">
+            Your browser does not support the canvas element.
+        </canvas>
+    </body>
+</html>
