@@ -2,7 +2,9 @@ function Rectangle(x, y, w, h){
 	this.x = x;
 	this.y = y;
 	this.width = w;
+	this.dwidth = 0.4;
 	this.height = h;
+	this.dheight = 0.1;
 	this.r = 0;
 	this.dr = Math.PI/240;
 	this.isCollide = false;
@@ -79,6 +81,16 @@ Rectangle.prototype.move = function(mouse){
 //	}
 	this.r += this.dr;
 	this.r %= Math.PI;
+	this.width += this.dwidth;
+	this.height += this.dheight;
+	
+	if(this.width > 500 || this.width < 10){
+		this.dwidth = -this.dwidth;
+	}
+	
+	if(this.height > 300 || this.height < 10){
+		this.dheight = -this.dheight;
+	}
 };
 
 Rectangle.prototype.checkColission = function(object){
@@ -86,6 +98,8 @@ Rectangle.prototype.checkColission = function(object){
 };
 
 Rectangle.prototype.calculateVertices = function(){
+	this.phi = Math.atan(this.height/this.width);
+	this.radius = Math.sqrt(Math.pow(this.height/2,2) + Math.pow(this.width/2,2));
 	this.v1x = this.x + this.radius * Math.cos(this.phi + this.r);
 	this.v1y = this.y + this.radius * Math.sin(this.phi + this.r);
 	this.v2x = this.x + this.radius * Math.cos(-this.phi + this.r);
